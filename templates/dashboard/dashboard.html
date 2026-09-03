@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-hero">
+    <h1>PatternLab</h1>
+    <p class="subtitle">Explore your data. Understand ML.</p>
+    <p>Experiment with data, build models, and understand the patterns within them.</p>
+</div>
+
+{% if current_user.is_authenticated %}
+<div class="dashboard-section">
+    <h2>Your Datasets</h2>
+    {% if user_datasets %}
+    <div class="datasets-grid">
+        {% for ds in user_datasets %}
+        <div class="dataset-card" id="dataset-card-{{ ds.id }}">
+            <h4>{{ ds.filename }}</h4>
+            <p>{{ ds.row_count }} rows &times; {{ ds.column_count }} cols</p>
+            <p class="small text-muted">Uploaded: {{ ds.created_at.strftime('%Y-%m-%d') }}</p>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                <button class="btn btn-secondary btn-sm load-db-btn" data-filepath="{{ ds.storage_path }}" data-filename="{{ ds.filename }}">Load in Builder</button>
+                <button class="btn btn-sm delete-db-btn" data-id="{{ ds.id }}" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">Delete</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>You haven't uploaded any datasets yet. Get started below!</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="dashboard-actions" style="margin-top: 2rem;">
+    <div class="action-card">
+        <h3>Upload Dataset</h3>
+        <p>Start exploring your own data (Max 5MB, CSV format).</p>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="csvFile" name="file" accept=".csv" class="file-input">
+            <button type="submit" class="btn btn-primary">Upload CSV</button>
+        </form>
+        <div id="uploadStatus" class="status-msg"></div>
+    </div>
+
+    <div class="action-card">
+        <h3>Explore with Sample Data</h3>
+        <p>Try out the platform instantly with curated sample datasets.</p>
+        <div class="sample-datasets">
+            <button class="btn btn-secondary demo-btn" data-filename="iris.csv">🌸 Iris (Multiclass)</button>
+            <button class="btn btn-secondary demo-btn" data-filename="customer_churn.csv">👥 Customer Churn (Binary)</button>
+            <button class="btn btn-secondary demo-btn" data-filename="house_prices.csv">🏠 House Prices (Regression)</button>
+        </div>
+        <div id="demoStatus" class="status-msg"></div>
+    </div>
+</div>
+
+<div class="dashboard-modules">
+    <h2>What do you want to do?</h2>
+    <div class="modules-grid">
+        <div class="module-card">
+            <h3><a href="{{ url_for('ml.builder') }}">ML MODEL BUILDER</a></h3>
+            <p>Build, tune, and evaluate machine learning models with interactive explanations.</p>
+        </div>
+        <div class="module-card">
+            <h3><a href="{{ url_for('visualization.visualization_page') }}">DATA VISUALIZATION</a></h3>
+            <p>Explore 3D feature relationships, PCA, and t-SNE projections.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

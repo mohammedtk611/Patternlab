@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ml_builder.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="ml-builder-container">
+    <div class="builder-header">
+        <h1>Interactive ML Laboratory</h1>
+        <p class="subtitle">Understand how machine learning models are trained, evaluate feature importance vs usefulness, and experiment with your data.</p>
+    </div>
+    
+    <!-- Dataset & Setup -->
+    <div id="setupState" class="state-panel">
+        <div class="panel-header">
+            <h2>1. Dataset & Target Configuration</h2>
+        </div>
+        <div id="analysisContent" class="empty-state">
+            <p>No dataset loaded. Go to the dashboard to select or upload a dataset.</p>
+            <a href="/" class="btn btn-primary">Go to Dashboard</a>
+        </div>
+        
+        <div id="configSection" style="display: none; margin-top: 20px;">
+            <!-- Target Selection -->
+            <div class="form-group">
+                <label for="targetSelect" style="font-weight: 600;">Select Target Variable (Prediction Goal):</label>
+                <select id="targetSelect" class="form-control"></select>
+                <div id="targetDescription" style="display:none; margin-top: 0.5rem; font-size: 0.95rem; color: var(--primary-color); background: #eff6ff; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #bfdbfe;">
+                    <strong>Problem Type:</strong> <span id="targetProblemType"></span>
+                </div>
+            </div>
+            
+            <!-- Model Selection -->
+            <div class="form-group" style="margin-top: 1.5rem;">
+                <label for="modelSelect" style="font-weight: 600;">Choose Algorithm:</label>
+                <select id="modelSelect" class="form-control"></select>
+                <div id="modelDescription" style="display:none; margin-top: 0.5rem; font-size: 0.9rem; background: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0;">
+                    <p id="modelDescText" style="margin-bottom: 0.5rem; color: var(--text-main); font-weight: 500;"></p>
+                    <p style="margin-bottom: 0.25rem;"><strong style="color: var(--success-color);">Strength:</strong> <span id="modelStrength"></span></p>
+                    <p style="margin: 0;"><strong style="color: var(--error-color);">Weakness:</strong> <span id="modelWeakness"></span></p>
+                </div>
+            </div>
+            
+            <div id="dataLeakageWarnings" class="alert alert-warning" style="display: none; margin-top: 15px;">
+                <strong>⚠️ Data Leakage Warning:</strong>
+                <ul id="warningList"></ul>
+            </div>
+            
+            <button id="trainBaselineBtn" class="btn btn-primary btn-lg" style="margin-top: 1.5rem;">Train Baseline Pipeline</button>
+            
+            <div id="trainProgressContainer" style="display: none; margin-top: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span id="trainStatusText">Training model & optimizing hyperparameters...</span>
+                </div>
+                <div class="progress-bar-track">
+                    <div id="trainProgressBar" class="progress-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Laboratory Tabs (Hidden until trained) -->
+    <div id="laboratoryState" style="display: none;">
+        
+        <div class="lab-tabs">
+            <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="cv-lab">Cross-Validation</button>
+            <button class="tab-btn" data-tab="ablation-lab">Feature Ablation Lab</button>
+            <button class="tab-btn" data-tab="engineering-lab">Feature Engineering Lab</button>
+            <button class="tab-btn" data-tab="noise-lab">Noise Lab</button>
+            <button class="tab-btn" data-tab="simulator-lab">Influence Simulator</button>
+            <button class="tab-btn" data-tab="history-lab">Experiment History</button>
+        </div>
+        
+        <div class="tab-content">
+            
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-pane active">
+                <div class="panel-header">
+                    <h2>Model Overview</h2>
+                </div>
+                
+                <div class="grid-3" id="metricCards">
+                    <!-- Metrics injected here -->
+                </div>
+                
+                <div class="explanation-box mt-3" id="modelExplanation">
+                    <!-- Explanation injected here -->
+                </div>
+                
+                <h3 class="mt-4">Feature Importance (Model Influence)</h3>
+                <p class="text-muted">Feature importance shows how much the trained model relies on a feature. It does not mean that the feature increases accuracy by this percentage.</p>
+                <div id="featureImportanceList" class="features-list">
+                    <!-- Feature importance injected here -->
+                </div>
+            </div>
+            
+            <!-- Cross-Validation Lab -->
+            <div id="cv-lab" class="tab-pane">
+                <div class="panel-header">
+                    <h2>Cross-Validation Lab</h2>
+                </div>
+                <p>A single train/test split can give a misleading result. Cross-validation checks whether the performance is consistent across different subsets of the training data.</p>
+                
+                <div class="cv-stats mt-3" id="cvStats">
+                    <!-- CV stats injected here -->
+                </div>
+                
+                <div class="chart-container mt-3">
+                    <canvas id="cvChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Feature Ablation Lab -->
+            <div id="ablation-lab" class="tab-pane">
+                <div class="panel-header">
+                    <h2>Feature Ablation Lab</h2>
+                </div>
+                <div class="educational-rule alert alert-info">
+                    <strong>Educational Concept:</strong> High model influence does not necessarily mean high usefulness. 
+                    Remove a feature below to test its actual out-of-sample usefulness.
+                </div>
+                
+                <div class="grid-2">
+                    <div>
+                        <h3>Select Feature to Remove:</h3>
+                        <div id="ablationFeatureList" class="list-group">
+                            <!-- Selectable features injected here -->
+                        </div>
+                    </div>
+                    <div>
+                        <h3>Ablation Result:</h3>
+                        <div id="ablationResultBox" class="result-box empty-state">
+                            <p>Select a feature on the left to run an ablation experiment.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Feature Engineering Lab -->
+            <div id="engineering-lab" class="tab-pane">
+                <div class="panel-header">
+                    <h2>Feature Engineering Lab</h2>
+                </div>
+                <p>Experiment with data transformations to expose new patterns to the model.</p>
+                
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Select Numerical Feature:</label>
+                        <select id="engFeatureSelect" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Transformation:</label>
+                        <select id="engTransformSelect" class="form-control">
+                            <option value="squared">Squared (x²)</option>
+                            <option value="log">Logarithm (log(x))</option>
+                            <option value="sqrt">Square Root (√x)</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="runEngineeringBtn" class="btn btn-secondary mt-2">Apply Transformation & Evaluate</button>
+                
+                <div id="engineeringResultBox" class="result-box mt-3" style="display: none;"></div>
+            </div>
+            
+            <!-- Noise Lab -->
+            <div id="noise-lab" class="tab-pane">
+                <div class="panel-header">
+                    <h2>Noise Lab</h2>
+                </div>
+                <p>Add random noise to a feature to see how it affects model generalization.</p>
+                
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label>Select Feature:</label>
+                        <select id="noiseFeatureSelect" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Noise Level (%): <span id="noiseLevelDisp">20</span>%</label>
+                        <input type="range" id="noiseLevelSlider" min="5" max="100" step="5" value="20" class="form-control-range">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button id="runNoiseBtn" class="btn btn-secondary">Inject Noise & Evaluate</button>
+                    </div>
+                </div>
+                
+                <div id="noiseResultBox" class="result-box mt-3" style="display: none;"></div>
+            </div>
+            
+            <!-- Feature Influence Simulator -->
+            <div id="simulator-lab" class="tab-pane">
+                <div class="panel-header">
+                    <h2>Feature Influence Simulator</h2>
+                </div>
+                <div class="alert alert-warning">
+                    <strong>Simulation mode:</strong> these influence values are manually controlled for learning and are not the model's actual learned parameters.
+                </div>
+                
+                <div class="toggle-switch-container mb-3">
+                    <label class="switch">
+                        <input type="checkbox" id="normalizeInfluenceToggle" checked>
+                        <span class="slider round"></span>
+                    </label>
+                    <span>Auto-normalize to 100%</span>
+                </div>
+                
+                <div class="grid-2">
+                    <div id="simulatorSliders">
+                        <!-- Sliders injected here -->
+                    </div>
+                    <div>
+                        <div class="prediction-comparison">
+                            <div class="pred-box real">
+                                <h4>REAL MODEL PREDICTION</h4>
+                                <div class="pred-value" id="realSimPred">--</div>
+                            </div>
+                            <div class="pred-box sim">
+                                <h4>SIMULATED PREDICTION</h4>
+                                <div class="pred-value" id="hypoSimPred">--</div>
+                                <p class="small text-muted mt-2">The simulated result represents a hypothetical re-weighting of feature contributions. It does not represent a newly trained model.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Experiment History -->
+            <div id="history-lab" class="tab-pane">
+                <div class="panel-header">
+                    <h2>Experiment History</h2>
+                </div>
+                <div id="historyTimeline" class="timeline">
+                    <!-- History injected here -->
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/ml_builder.js') }}"></script>
+{% endblock %}

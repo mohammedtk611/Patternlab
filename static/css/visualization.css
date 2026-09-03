@@ -1,0 +1,48 @@
+.vis-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+#visWorkspace {
+    display: flex;
+    gap: 2rem;
+    margin-top: 2rem;
+    height: 600px;
+}
+
+.vis-controls {
+    flex: 0 0 300px;
+    background: var(--bg-main);
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    overflow-y: auto;
+}
+
+.vis-canvas {
+    flex: 1;
+    background: #111;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    position: relative;
+}
+
+.node-inspector {
+    background: var(--bg-alt);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.node-inspector h3 {
+    margin-bottom: 0.5rem;
+    color: var(--primary-color);
+}
+
+.node-inspector input[type="range"] {
+    width: 100%;
+    margin-top: 0.5rem;
+}

@@ -1,0 +1,61 @@
+# =========================
+# Python
+# =========================
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# =========================
+# Virtual Environment
+# =========================
+
+venv/
+env/
+.venv/
+
+# =========================
+# Environment Variables / Secrets
+# =========================
+
+.env
+.env.*
+!.env.example
+
+# =========================
+# User Uploaded Files
+# =========================
+
+uploads/*
+
+# Keep the uploads folder itself
+!uploads/.gitkeep
+
+# =========================
+# Database
+# =========================
+
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# IDE / Editor
+# =========================
+
+.vscode/
+.idea/
+
+# =========================
+# Operating System
+# =========================
+
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+
+*.log

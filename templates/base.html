@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatternLab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/">PatternLab</a>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('ml.builder') }}">ML Builder</a>
+            <a href="{{ url_for('visualization.visualization_page') }}">Visualization</a>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('auth.logout') }}">Logout ({{ current_user.username }})</a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}">Login</a>
+                <a href="{{ url_for('auth.register') }}">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+    
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/global.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

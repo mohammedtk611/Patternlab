@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/visualization.css') }}">
+<script src="https://unpkg.com/3d-force-graph"></script>
+{% endblock %}
+
+{% block content %}
+<div class="vis-container">
+    <h1>Data Visualization</h1>
+    
+    <div id="datasetState" class="state-panel">
+        <div id="visHeader" class="empty-state">
+            <p>No dataset loaded. Go to the dashboard to load a dataset.</p>
+            <a href="/" class="btn btn-primary">Go to Dashboard</a>
+        </div>
+    </div>
+    
+    <div id="visWorkspace" style="display: none;">
+        <div class="vis-controls">
+            <div class="form-group">
+                <label>Visualization Mode:</label>
+                <select id="visMode" class="form-control">
+                    <option value="graph">Feature Relationship Graph</option>
+                    <option value="pca">PCA Projection</option>
+                    <option value="tsne">t-SNE Projection</option>
+                </select>
+            </div>
+            
+            <div id="graphControls" class="mode-controls">
+                <p>Click on nodes to inspect features or experiment with weights.</p>
+                <button id="buildModelBtn" class="btn btn-primary">Send to ML Builder</button>
+            </div>
+            
+            <div id="dimControls" class="mode-controls" style="display: none;">
+                <label>Dimensions:</label>
+                <select id="dimSelect" class="form-control">
+                    <option value="3">3D</option>
+                    <option value="2">2D</option>
+                </select>
+                <button id="projectBtn" class="btn btn-secondary" style="margin-top: 10px;">Run Projection</button>
+            </div>
+            
+            <div id="nodeInspector" class="node-inspector" style="display: none;">
+                <h3 id="nodeName">Feature Name</h3>
+                <p>Type: <span id="nodeType"></span></p>
+                <p>Correlation: <span id="nodeCorr"></span></p>
+                <label>Experimental Weight:</label>
+                <input type="range" id="weightSlider" min="0" max="2" step="0.1" value="1">
+                <span id="weightValue">1.0x</span>
+                <br><br>
+                <button id="toggleFeatureBtn" class="btn btn-secondary btn-sm">Remove Feature</button>
+            </div>
+        </div>
+        
+        <div class="vis-canvas">
+            <div id="3d-graph"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/visualization.js') }}"></script>
+{% endblock %}
