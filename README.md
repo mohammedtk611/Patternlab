@@ -8,6 +8,10 @@ The goal of PatternLab is to provide a single platform where users can upload or
 
 ---
 
+> 🚧 **Status: In Development**
+>
+> This project is actively being built. Features and UI are subject to change.
+
 ## 🚀 Features
 
 * 📊 **Dataset Analysis** — Explore and understand structured datasets.
