@@ -1,85 +1,93 @@
+// ==========================================================================
+// PatternLab Interactive ML Studio Controller
+// ==========================================================================
+
 document.addEventListener('DOMContentLoaded', () => {
     const analysisContent = document.getElementById('analysisContent');
     const datasetState = getDatasetState();
+    
     let currentModelsMetadata = [];
     let currentExperimentId = null;
     let baselineMetrics = null;
-    let chartInstance = null;
+    let cvChartInstance = null;
+    let regressionChartInstance = null;
+    let sessionExperiments = []; // Tracks runs within this session for instant comparison
+    let currentHyperparameters = {};
     
     if (datasetState && datasetState.analysis) {
         renderAnalysis(datasetState.filename, datasetState.analysis);
+        document.getElementById('datasetQuickActions').style.display = 'flex';
     }
-    
+
+    // Dataset Quick View Modal in Studio
+    document.getElementById('viewDatasetBtn')?.addEventListener('click', () => {
+        if (!datasetState) return;
+        openStudioPreviewModal(datasetState.filepath, datasetState.filename);
+    });
+
+    // 1. Exploratory Data Analysis & Setup
     function renderAnalysis(filename, analysis) {
         let html = `
-            <h3>Loaded Dataset: ${escapeHtml(filename)}</h3>
-            <div class="analysis-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                <div class="stat-box">
-                    <div class="value">${analysis.row_count}</div>
-                    <div class="label">Rows</div>
+            <div class="dataset-summary-bar">
+                <div class="dataset-summary-title">
+                    <span>📄</span>
+                    <span>${escapeHtml(filename)}</span>
                 </div>
-                <div class="stat-box">
-                    <div class="value">${analysis.column_count}</div>
-                    <div class="label">Columns</div>
-                </div>
-                <div class="stat-box">
-                    <div class="value">${analysis.numerical_columns_count}</div>
-                    <div class="label">Numerical Features</div>
-                </div>
-                <div class="stat-box">
-                    <div class="value">${analysis.categorical_columns_count}</div>
-                    <div class="label">Categorical Features</div>
+                <div class="dataset-summary-stats">
+                    <span><strong>${analysis.row_count.toLocaleString()}</strong> Rows</span>
+                    <span><strong>${analysis.column_count}</strong> Columns</span>
+                    <span><strong style="color: var(--info);">${analysis.numerical_columns_count}</strong> Numerical</span>
+                    <span><strong style="color: #a855f7;">${analysis.categorical_columns_count}</strong> Categorical</span>
                 </div>
             </div>
-        `;
-        
-        let tableHtml = `
-            <div class="analysis-section-header">
-                <h4><span class="icon">📊</span> Column Details</h4>
-                <p class="subtitle">Detailed breakdown of dataset features</p>
+            
+            <div class="analysis-section-header" style="margin-top: 1.5rem; margin-bottom: 0.75rem;">
+                <h4 style="font-size: 1.15rem; margin-bottom: 0.25rem;">Column Architecture &amp; Data Health</h4>
+                <p class="text-muted" style="font-size: 0.85rem;">Feature types, missing value percentages, and baseline summary statistics</p>
             </div>
-            <div class="table-container-static">
-                <table class="data-table">
+            
+            <div class="table-container-static" style="max-height: 340px; overflow-y: auto; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
                     <thead>
                         <tr>
-                            <th><span class="icon">📝</span> Column Name</th>
-                            <th><span class="icon">🔠</span> Type</th>
-                            <th><span class="icon">❌</span> Missing Data</th>
-                            <th><span class="icon">📉</span> Missing %</th>
-                            <th><span class="icon">🔢</span> Summary</th>
+                            <th>Column Name</th>
+                            <th>Data Type</th>
+                            <th>Missing Cells</th>
+                            <th>Missing %</th>
+                            <th>Distribution Summary</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${analysis.columns.map(col => {
-                            const typeBadgeClass = col.type === 'numerical' ? 'badge-blue' : 'badge-purple';
-                            const missingDataText = col.missing_count;
-                            const missingPctText = col.missing_percentage + '%';
-                                
+                            const typeBadgeClass = col.type === 'numerical' ? 'badge-blue' : 'badge-orange';
+                            const hasMissing = col.missing_count > 0;
                             return `
                             <tr>
                                 <td>
-                                    <div class="col-name">${escapeHtml(col.name)}</div>
+                                    <div style="font-weight: 600; color: var(--text-primary); font-family: var(--font-mono);">${escapeHtml(col.name)}</div>
                                 </td>
                                 <td>
                                     <span class="badge ${typeBadgeClass}">${col.type}</span>
-                                    <span class="text-xs text-muted" style="display:block; margin-top:4px;">${col.dtype}</span>
+                                    <span class="text-muted" style="display: block; font-size: 0.75rem; margin-top: 2px;">${col.dtype}</span>
                                 </td>
-                                <td style="font-weight: 500; color: ${col.missing_count > 0 ? 'var(--error-color)' : 'inherit'}">
-                                    ${missingDataText}
+                                <td style="font-weight: 600; color: ${hasMissing ? 'var(--danger)' : 'var(--text-muted)'};">
+                                    ${col.missing_count}
                                 </td>
-                                <td style="font-weight: 500; color: ${col.missing_percentage > 0 ? 'var(--error-color)' : 'inherit'}">
-                                    ${missingPctText}
+                                <td style="font-weight: 600; color: ${hasMissing ? 'var(--danger)' : 'var(--text-muted)'};">
+                                    ${col.missing_percentage}%
                                 </td>
                                 <td>
-                                    ${col.type === 'numerical' ? 
-                                        `<div class="stat-summary">
-                                            <span><strong>Min:</strong> ${col.min}</span>
-                                            <span><strong>Max:</strong> ${col.max}</span>
-                                            <span><strong>Mean:</strong> ${col.mean !== null ? col.mean.toFixed(2) : 'N/A'}</span>
-                                         </div>` : 
-                                        `<div class="stat-summary">
-                                            <span><strong>Unique Values:</strong> ${col.unique_values || 'N/A'}</span>
-                                         </div>`}
+                                    ${col.type === 'numerical' ? `
+                                        <div style="display: flex; gap: 0.75rem; font-size: 0.8rem; font-family: var(--font-mono);">
+                                            <span>Min: <strong>${col.min !== null ? col.min : 'N/A'}</strong></span>
+                                            <span>Max: <strong>${col.max !== null ? col.max : 'N/A'}</strong></span>
+                                            <span>Mean: <strong>${col.mean !== null ? col.mean.toFixed(2) : 'N/A'}</strong></span>
+                                        </div>
+                                    ` : `
+                                        <div style="font-size: 0.8rem;">
+                                            <span>Distinct Categories: <strong>${col.unique_values || 'N/A'}</strong></span>
+                                        </div>
+                                    `}
                                 </td>
                             </tr>
                             `;
@@ -89,17 +97,16 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         
-        html += tableHtml;
         analysisContent.innerHTML = html;
         analysisContent.className = '';
-        
         document.getElementById('configSection').style.display = 'block';
         setupTargetSelection(datasetState);
     }
-    
+
+    // 2. Target Variable Selection
     function setupTargetSelection(state) {
         const targetSelect = document.getElementById('targetSelect');
-        targetSelect.innerHTML = '<option value="">-- Select Target --</option>';
+        targetSelect.innerHTML = '<option value="">-- Choose Target Column --</option>';
         
         state.analysis.columns.forEach(col => {
             const opt = document.createElement('option');
@@ -108,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             targetSelect.appendChild(opt);
         });
         
+        // Auto-select pre-suggested or stored target
         if (state.target) {
             targetSelect.value = state.target;
             triggerTargetChange(state.target, state);
@@ -120,24 +128,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const modelInfoMap = {
-        "Random Forest Classifier": { desc: "An ensemble of decision trees that uses majority voting to make predictions.", strength: "Highly accurate and robust against overfitting.", weakness: "Can be slow to train and less interpretable than single trees." },
-        "Logistic Regression": { desc: "A linear model used for predicting probabilities of classes.", strength: "Fast, interpretable, and provides probability estimates.", weakness: "Assumes linear relationships and struggles with complex patterns." },
-        "Decision Tree Classifier": { desc: "A tree-like model that splits data based on feature thresholds.", strength: "Highly interpretable and handles non-linear relationships well.", weakness: "Prone to overfitting if not properly tuned." },
-        "Gradient Boosting Classifier": { desc: "Builds trees sequentially, with each tree correcting the errors of the previous one.", strength: "Often achieves state-of-the-art accuracy on tabular data.", weakness: "Prone to overfitting and sensitive to hyperparameters." },
-        "Support Vector Machine": { desc: "Finds the optimal hyperplane that maximizes the margin between classes.", strength: "Effective in high-dimensional spaces.", weakness: "Scales poorly to very large datasets." },
-        "K-Nearest Neighbors": { desc: "Predicts the class based on the majority class of its K nearest data points.", strength: "Simple to understand and makes no assumptions about data distribution.", weakness: "Slow at inference time and sensitive to irrelevant features." },
-        "Random Forest Regressor": { desc: "An ensemble of decision trees that averages their predictions for continuous values.", strength: "Robust, handles non-linear data well, and reduces variance.", weakness: "Can be computationally expensive and less interpretable." },
-        "Linear Regression": { desc: "A simple linear model that predicts a continuous value based on feature combinations.", strength: "Extremely fast and highly interpretable.", weakness: "Assumes a strict linear relationship between features and target." },
-        "Decision Tree Regressor": { desc: "Splits data into branches to predict a continuous numeric value at the leaves.", strength: "Captures non-linear relationships without feature scaling.", weakness: "Easily overfits and can be highly sensitive to small data changes." },
-        "Gradient Boosting Regressor": { desc: "Builds trees sequentially to minimize regression errors.", strength: "Highly accurate and flexible for complex datasets.", weakness: "Can overfit and requires careful hyperparameter tuning." }
-    };
-
     async function triggerTargetChange(target, state) {
         try {
             const response = await fetch('/ml/api/target', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filepath: state.filepath, target: target })
             });
             const data = await response.json();
@@ -147,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.problem_type = data.problem_type;
                 currentModelsMetadata = data.models_metadata || [];
                 
-                // Show target description
+                // Show problem type
                 document.getElementById('targetProblemType').textContent = data.problem_type;
                 document.getElementById('targetDescription').style.display = 'block';
                 
@@ -164,68 +159,170 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupModelSelection(data.models_metadata || data.available_models);
             }
         } catch (err) {
-            console.error('Error fetching target details:', err);
+            console.error('Error fetching target metadata:', err);
+            showToast('Failed to analyze target column.', 'danger');
         }
     }
-    
+
+    // 3. Algorithm Selection & Hyperparameters
     function setupModelSelection(modelsData) {
         const modelSelect = document.getElementById('modelSelect');
         modelSelect.innerHTML = '';
         const models = Array.isArray(modelsData) ? modelsData : [];
+        
         models.forEach(item => {
             const opt = document.createElement('option');
-            opt.value = typeof item === 'string' ? item : item.name;
-            opt.textContent = typeof item === 'string' ? item : item.name;
+            const name = typeof item === 'string' ? item : item.name;
+            opt.value = name;
+            opt.textContent = name;
             modelSelect.appendChild(opt);
         });
         
-        function updateModelDesc() {
+        function updateModelView() {
             const selected = modelSelect.value;
+            const meta = currentModelsMetadata.find(m => m.name === selected) || {};
+            
+            // Update badge & category
+            const catBadge = document.getElementById('modelCategoryBadge');
+            if (meta.category) {
+                catBadge.textContent = `${meta.badge || 'Algorithm'} • ${meta.category}`;
+                catBadge.style.display = 'inline-flex';
+            } else {
+                catBadge.style.display = 'none';
+            }
+            
+            // Description & Strengths
             const infoBox = document.getElementById('modelDescription');
-            const info = modelInfoMap[selected];
-            if (info) {
-                document.getElementById('modelDescText').textContent = info.desc;
-                document.getElementById('modelStrength').textContent = info.strength;
-                document.getElementById('modelWeakness').textContent = info.weakness;
+            if (meta.description) {
+                document.getElementById('modelDescText').textContent = meta.description;
+                document.getElementById('modelStrength').textContent = meta.strengths || 'Robust performance across standard tabular benchmarks.';
+                document.getElementById('modelWeakness').textContent = meta.weaknesses || 'Sensitive to extreme outlier samples.';
                 infoBox.style.display = 'block';
             } else {
                 infoBox.style.display = 'none';
             }
+            
+            // Build dynamic hyperparameter controls
+            renderHyperparameterControls(meta.hyperparameters || []);
         }
         
-        modelSelect.addEventListener('change', updateModelDesc);
-        if (models.length > 0) updateModelDesc();
+        modelSelect.addEventListener('change', updateModelView);
+        if (models.length > 0) updateModelView();
     }
-    
-    // Baseline Training
+
+    // Hyperparameter Accordion Toggle
+    const hpToggle = document.getElementById('hyperparamsToggle');
+    const hpBody = document.getElementById('hyperparamsBody');
+    const hpChevron = document.getElementById('hyperparamsChevron');
+    if (hpToggle) {
+        hpToggle.addEventListener('click', () => {
+            const isOpen = hpBody.style.display === 'block';
+            hpBody.style.display = isOpen ? 'none' : 'block';
+            hpChevron.textContent = isOpen ? '▼' : '▲';
+        });
+    }
+
+    function renderHyperparameterControls(params) {
+        const container = document.getElementById('hyperparamsContainer');
+        container.innerHTML = '';
+        currentHyperparameters = {};
+        
+        if (!params || params.length === 0) {
+            container.innerHTML = '<p class="text-muted" style="font-size: 0.85rem;">This algorithm operates effectively with standard statistical defaults.</p>';
+            return;
+        }
+        
+        params.forEach(p => {
+            currentHyperparameters[p.name] = p.default;
+            
+            const item = document.createElement('div');
+            item.className = 'hyperparam-item';
+            
+            if (p.type === 'number') {
+                item.innerHTML = `
+                    <div class="hyperparam-header">
+                        <span>${escapeHtml(p.label)}: <span class="hyperparam-val-badge" id="hp_val_${p.name}">${p.default}</span></span>
+                        <span class="text-muted" style="font-size: 0.75rem;">${escapeHtml(p.description || '')}</span>
+                    </div>
+                    <input type="range" class="hp-range" data-param="${p.name}" 
+                           min="${p.min || 1}" max="${p.max || 100}" step="${p.step || 1}" value="${p.default}" 
+                           style="width: 100%; accent-color: var(--accent-primary);">
+                `;
+            } else if (p.type === 'boolean') {
+                item.innerHTML = `
+                    <div class="hyperparam-header" style="display: flex; align-items: center; justify-content: space-between;">
+                        <span>${escapeHtml(p.label)}</span>
+                        <label class="switch">
+                            <input type="checkbox" class="hp-check" data-param="${p.name}" ${p.default ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <p class="text-muted" style="font-size: 0.75rem; margin: 0;">${escapeHtml(p.description || '')}</p>
+                `;
+            }
+            container.appendChild(item);
+        });
+        
+        // Listen to range slider inputs
+        container.querySelectorAll('.hp-range').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const param = e.target.dataset.param;
+                const val = parseFloat(e.target.value);
+                currentHyperparameters[param] = val;
+                const disp = document.getElementById(`hp_val_${param}`);
+                if (disp) disp.textContent = val;
+            });
+        });
+        
+        // Listen to checkbox inputs
+        container.querySelectorAll('.hp-check').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const param = e.target.dataset.param;
+                currentHyperparameters[param] = e.target.checked;
+            });
+        });
+    }
+
+    // 4. Baseline Pipeline Training
     document.getElementById('trainBaselineBtn')?.addEventListener('click', async () => {
         const state = datasetState;
         if (!state || !state.target) {
-            alert("Please select a target.");
+            showToast('Please select a target variable first.', 'warning');
             return;
         }
         
         const btn = document.getElementById('trainBaselineBtn');
         const progContainer = document.getElementById('trainProgressContainer');
         const progBar = document.getElementById('trainProgressBar');
+        const progPct = document.getElementById('trainPctText');
+        const statusText = document.getElementById('trainStatusText');
         
         btn.disabled = true;
         progContainer.style.display = 'block';
-        progBar.style.width = '50%';
+        progBar.style.width = '30%';
+        progPct.textContent = '30%';
+        statusText.textContent = 'Applying preprocessing & imputer pipelines...';
         
-        // Auto select all features except target for baseline
         const features = state.analysis.columns.map(c => c.name).filter(c => c !== state.target);
+        const selectedModel = document.getElementById('modelSelect').value;
+        
+        setTimeout(() => {
+            progBar.style.width = '65%';
+            progPct.textContent = '65%';
+            statusText.textContent = `Optimizing ${selectedModel} estimators...`;
+        }, 400);
         
         try {
             const response = await fetch('/ml/api/experiments/baseline', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     filepath: state.filepath,
                     target: state.target,
                     features: features,
-                    model: document.getElementById('modelSelect').value,
-                    problem_type: state.problem_type
+                    model: selectedModel,
+                    problem_type: state.problem_type,
+                    hyperparameters: currentHyperparameters
                 })
             });
             const data = await response.json();
@@ -233,54 +330,80 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (response.ok) {
                 progBar.style.width = '100%';
+                progPct.textContent = '100%';
+                statusText.textContent = 'Training complete! Generating visualizations...';
+                
                 setTimeout(() => {
                     progContainer.style.display = 'none';
                     baselineMetrics = data.metrics;
                     currentExperimentId = data.experiment_id;
+                    
+                    // Add to session comparisons
+                    sessionExperiments = [{
+                        name: `Baseline (${selectedModel})`,
+                        type: 'baseline',
+                        algorithm: selectedModel,
+                        metrics: data.metrics,
+                        isBaseline: true
+                    }];
+                    
+                    showToast('Baseline model trained successfully!', 'success');
                     initializeLaboratory(state, data.metrics, features);
-                }, 500);
+                }, 450);
             } else {
                 progContainer.style.display = 'none';
-                alert(data.error || 'Training failed.');
+                showToast(data.error || 'Training failed.', 'danger');
             }
         } catch (err) {
             btn.disabled = false;
             progContainer.style.display = 'none';
-            alert('Network error.');
+            showToast('Network error occurred during training.', 'danger');
         }
     });
-    
+
+    // 5. Initialize Laboratory State & Tabs
     function initializeLaboratory(state, metrics, features) {
         document.getElementById('laboratoryState').style.display = 'block';
+        document.getElementById('setupStatusBadge').className = 'badge badge-success';
+        document.getElementById('setupStatusBadge').textContent = 'Trained & Active';
         
-        // Setup Tabs
+        // Tab click listeners
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.onclick = (e) => {
+                const targetBtn = e.currentTarget;
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-                e.target.classList.add('active');
-                document.getElementById(e.target.dataset.tab).classList.add('active');
-                if (e.target.dataset.tab === 'history-lab') {
-                    loadHistory();
-                }
-            });
+                
+                targetBtn.classList.add('active');
+                const pane = document.getElementById(targetBtn.dataset.tab);
+                if (pane) pane.classList.add('active');
+                
+                if (targetBtn.dataset.tab === 'history-lab') loadHistory();
+                if (targetBtn.dataset.tab === 'comparison-lab') renderComparisonTable();
+            };
         });
         
-        renderDashboard(metrics);
+        renderDashboard(metrics, state.problem_type);
         renderCV(metrics);
         setupAblationLab(features);
         setupEngineeringLab(features, state.analysis.columns);
         setupNoiseLab(features);
         setupSimulatorLab(metrics);
+        renderComparisonTable();
         
-        document.getElementById('laboratoryState').scrollIntoView({behavior: 'smooth'});
+        document.getElementById('laboratoryState').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    
-    function renderDashboard(metrics) {
+
+    // 6. Render Dashboard (Metrics, Confusion Matrix, Actual vs Pred, Feature Importance)
+    function renderDashboard(metrics, problemType) {
         const cards = document.getElementById('metricCards');
         cards.innerHTML = '';
         
-        const skipKeys = new Set(['confusion_matrix', 'actual_vs_predicted', 'feature_importances', 'insights', 'classes', 'classification_report', 'model_name', 'problem_type', 'cv_scores']);
+        const skipKeys = new Set([
+            'confusion_matrix', 'actual_vs_predicted', 'feature_importances', 
+            'insights', 'classes', 'classification_report', 'model_name', 
+            'problem_type', 'cv_scores', 'best_params', 'cv_metric'
+        ]);
         
         for (const [key, value] of Object.entries(metrics)) {
             if (skipKeys.has(key)) continue;
@@ -296,22 +419,45 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
         
+        // Natural Language Insights
         if (metrics.insights) {
             document.getElementById('modelExplanation').innerHTML = `
                 <div class="alert alert-info">
-                    <strong>Model Insight:</strong> ${escapeHtml(metrics.insights)}
+                    <div>
+                        <strong>🤖 Automated Explainer Insight:</strong>
+                        <p style="margin-top: 0.25rem; font-size: 0.95rem;">${escapeHtml(metrics.insights)}</p>
+                    </div>
                 </div>
             `;
         }
         
+        // Render Confusion Matrix (Classification)
+        const cmContainer = document.getElementById('confusionMatrixContainer');
+        if (metrics.confusion_matrix && metrics.confusion_matrix.matrix) {
+            cmContainer.style.display = 'block';
+            renderConfusionMatrixHeatmap(metrics.confusion_matrix);
+        } else {
+            cmContainer.style.display = 'none';
+        }
+        
+        // Render Regression Scatter Plot (Regression)
+        const regContainer = document.getElementById('regressionPlotContainer');
+        if (metrics.actual_vs_predicted && metrics.actual_vs_predicted.length > 0) {
+            regContainer.style.display = 'block';
+            renderRegressionScatterChart(metrics.actual_vs_predicted);
+        } else {
+            regContainer.style.display = 'none';
+        }
+        
+        // Render Feature Importance
         const featList = document.getElementById('featureImportanceList');
         featList.innerHTML = '';
-        if (metrics.feature_importances) {
+        if (metrics.feature_importances && metrics.feature_importances.length > 0) {
             metrics.feature_importances.forEach(item => {
                 const pct = Math.max(0, Math.min(100, item.percentage || (item.importance * 100)));
                 featList.innerHTML += `
                     <div class="feature-importance-item">
-                        <div class="feature-label-col">${escapeHtml(item.feature)}</div>
+                        <div class="feature-label-col" title="${escapeHtml(item.feature)}">${escapeHtml(item.feature)}</div>
                         <div class="feature-bar-col">
                             <div class="feature-bar-fill" style="width: ${pct}%;"></div>
                         </div>
@@ -319,73 +465,215 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             });
+        } else {
+            featList.innerHTML = '<p class="text-muted">Feature importance weights not available for this model configuration.</p>';
         }
     }
-    
+
+    // Confusion Matrix Heatmap Builder
+    function renderConfusionMatrixHeatmap(cmData) {
+        const wrapper = document.getElementById('cmGridWrapper');
+        const matrix = cmData.matrix;
+        const labels = cmData.labels || [];
+        
+        // Calculate max value for color intensity scaling
+        let maxVal = 1;
+        let totalVal = 0;
+        matrix.forEach(row => row.forEach(val => {
+            if (val > maxVal) maxVal = val;
+            totalVal += val;
+        }));
+        
+        let tableHtml = `<table class="cm-table"><thead><tr><th>Actual \\ Pred</th>`;
+        labels.forEach(lbl => {
+            tableHtml += `<th>Pred: ${escapeHtml(lbl)}</th>`;
+        });
+        tableHtml += `</tr></thead><tbody>`;
+        
+        matrix.forEach((row, i) => {
+            tableHtml += `<tr><th>Actual: ${escapeHtml(labels[i] || `Class ${i}`)}</th>`;
+            row.forEach((cellVal, j) => {
+                const ratio = cellVal / maxVal;
+                let lvl = 'cm-lvl-0';
+                if (ratio > 0.75) lvl = 'cm-lvl-4';
+                else if (ratio > 0.45) lvl = 'cm-lvl-3';
+                else if (ratio > 0.2) lvl = 'cm-lvl-2';
+                else if (cellVal > 0) lvl = 'cm-lvl-1';
+                
+                const pct = totalVal > 0 ? ((cellVal / totalVal) * 100).toFixed(1) : 0;
+                tableHtml += `
+                    <td>
+                        <div class="cm-cell ${lvl}" title="Actual: ${escapeHtml(labels[i])}, Predicted: ${escapeHtml(labels[j])}">
+                            <span>${cellVal}</span>
+                            <span class="cell-pct">${pct}%</span>
+                        </div>
+                    </td>
+                `;
+            });
+            tableHtml += `</tr>`;
+        });
+        
+        tableHtml += `</tbody></table>`;
+        wrapper.innerHTML = tableHtml;
+    }
+
+    // Regression Scatter Chart Builder
+    function renderRegressionScatterChart(dataPoints) {
+        const ctx = document.getElementById('regressionChart').getContext('2d');
+        if (regressionChartInstance) regressionChartInstance.destroy();
+        
+        const scatterData = dataPoints.map(p => ({ x: p.actual, y: p.predicted }));
+        const minVal = Math.min(...dataPoints.map(p => Math.min(p.actual, p.predicted)));
+        const maxVal = Math.max(...dataPoints.map(p => Math.max(p.actual, p.predicted)));
+        
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+        const textColor = isDark ? '#94a3b8' : '#64748b';
+        
+        regressionChartInstance = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Predictions',
+                        data: scatterData,
+                        backgroundColor: 'rgba(99, 102, 241, 0.75)',
+                        borderColor: '#6366f1',
+                        borderWidth: 1,
+                        pointRadius: 4.5,
+                        pointHoverRadius: 7
+                    },
+                    {
+                        label: 'Ideal 45° Fit (Actual = Predicted)',
+                        data: [{ x: minVal, y: minVal }, { x: maxVal, y: maxVal }],
+                        type: 'line',
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: textColor, font: { family: 'Inter', size: 12 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `Actual: ${ctx.parsed.x.toFixed(2)}, Predicted: ${ctx.parsed.y.toFixed(2)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Actual Ground Truth', color: textColor },
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    },
+                    y: {
+                        title: { display: true, text: 'Model Prediction', color: textColor },
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    }
+                }
+            }
+        });
+    }
+
+    // 7. Cross-Validation Lab
     function renderCV(metrics) {
         const cvStats = document.getElementById('cvStats');
+        const metricName = metrics.cv_metric || (datasetState.problem_type.includes('Classification') ? 'Accuracy' : 'R² Score');
+        
         if (!metrics.cv_scores || metrics.cv_scores.length === 0) {
-            cvStats.innerHTML = '<p>Cross-validation data not available.</p>';
+            cvStats.innerHTML = '<p class="text-muted">Cross-validation data is being populated.</p>';
             return;
         }
         
-        const mean = metrics.cv_scores.reduce((a,b)=>a+b,0) / metrics.cv_scores.length;
-        const variance = metrics.cv_scores.reduce((a,b)=>a + Math.pow(b-mean, 2), 0) / metrics.cv_scores.length;
-        const std = Math.sqrt(variance);
+        const mean = metrics.cv_mean || (metrics.cv_scores.reduce((a, b) => a + b, 0) / metrics.cv_scores.length);
+        const std = metrics.cv_std !== undefined ? metrics.cv_std : 0;
         
         cvStats.innerHTML = `
             <div class="grid-2">
-                <div class="stat-box"><div class="value">${mean.toFixed(4)}</div><div class="label">Mean CV Score</div></div>
-                <div class="stat-box"><div class="value">±${std.toFixed(4)}</div><div class="label">Standard Deviation</div></div>
+                <div class="stat-box">
+                    <div class="value">${mean.toFixed(4)}</div>
+                    <div class="label">Mean CV ${metricName}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="value">±${std.toFixed(4)}</div>
+                    <div class="label">Fold Stability (Std Dev)</div>
+                </div>
             </div>
         `;
         
         const ctx = document.getElementById('cvChart').getContext('2d');
-        if (chartInstance) chartInstance.destroy();
+        if (cvChartInstance) cvChartInstance.destroy();
         
-        chartInstance = new Chart(ctx, {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+        const textColor = isDark ? '#94a3b8' : '#64748b';
+        
+        cvChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: metrics.cv_scores.map((_, i) => `Fold ${i+1}`),
+                labels: metrics.cv_scores.map((_, i) => `Fold ${i + 1}`),
                 datasets: [{
-                    label: 'Score',
-                    data: metrics.cv_scores,
-                    backgroundColor: '#3b82f6'
+                    label: `${metricName} per Fold`,
+                    data: metrics.cv_scores.map(s => Number(s.toFixed(4))),
+                    backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                    borderColor: '#6366f1',
+                    borderRadius: 6,
+                    borderWidth: 1
                 }]
             },
             options: {
-                scales: { y: { beginAtZero: false, suggestedMin: Math.min(...metrics.cv_scores) * 0.95 } }
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: textColor } }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: textColor } },
+                    y: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor },
+                        suggestedMin: Math.max(0, Math.min(...metrics.cv_scores) * 0.9)
+                    }
+                }
             }
         });
     }
-    
+
+    // 8. Feature Ablation Lab
     function setupAblationLab(features) {
         const list = document.getElementById('ablationFeatureList');
         list.innerHTML = '';
+        
         features.forEach(f => {
-            const a = document.createElement('a');
-            a.className = 'list-group-item';
-            a.style.cursor = 'pointer';
-            a.style.display = 'block';
-            a.style.padding = '10px';
-            a.style.border = '1px solid #ccc';
-            a.style.marginBottom = '5px';
-            a.style.borderRadius = '5px';
-            a.textContent = f;
-            a.onclick = () => runAblation(f, features);
-            list.appendChild(a);
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-outline';
+            btn.style.width = '100%';
+            btn.style.justifyContent = 'space-between';
+            btn.style.padding = '0.75rem 1rem';
+            btn.innerHTML = `<span>✂️ ${escapeHtml(f)}</span> <span class="badge badge-orange" style="font-size:0.7rem;">Click to Drop</span>`;
+            btn.onclick = () => runAblation(f, features, btn);
+            list.appendChild(btn);
         });
     }
-    
-    async function runAblation(featureToDrop, allFeatures) {
+
+    async function runAblation(featureToDrop, allFeatures, triggerBtn) {
         const resBox = document.getElementById('ablationResultBox');
-        resBox.innerHTML = '<p>Running ablation experiment...</p>';
+        resBox.innerHTML = `<div style="text-align:center; padding: 1.5rem;"><p>Ablating <strong>${escapeHtml(featureToDrop)}</strong> and retraining...</p></div>`;
         resBox.className = 'result-box';
+        
+        triggerBtn.disabled = true;
         
         try {
             const response = await fetch('/ml/api/experiments/ablate', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     filepath: datasetState.filepath,
                     target: datasetState.target,
@@ -397,29 +685,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
             const data = await response.json();
+            triggerBtn.disabled = false;
+            
             if (response.ok) {
-                const metricKey = datasetState.problem_type.includes('Classification') ? 'Accuracy' : 'R2';
-                const baseScore = baselineMetrics[metricKey];
-                const newScore = data.result.metrics[metricKey];
+                const isClass = datasetState.problem_type.includes('Classification');
+                const metricKey = isClass ? 'Accuracy' : 'R2';
+                const baseScore = baselineMetrics[metricKey] || 0;
+                const newScore = data.result.metrics[metricKey] || 0;
                 const diff = newScore - baseScore;
-                const diffStr = diff > 0 ? `+${diff.toFixed(4)} (Improved)` : `${diff.toFixed(4)} (Decreased)`;
-                const diffColor = diff > 0 ? 'green' : 'red';
+                
+                const isImproved = diff > 0.0005;
+                const isHarmful = diff < -0.0005;
+                const diffColor = isImproved ? 'var(--success)' : isHarmful ? 'var(--danger)' : 'var(--text-muted)';
+                const diffLabel = isImproved ? `+${diff.toFixed(4)} (Accuracy Improved Without Feature!)` : isHarmful ? `${diff.toFixed(4)} (Performance Dropped)` : `0.0000 (No Material Change)`;
                 
                 resBox.innerHTML = `
-                    <h4>Results after removing: <strong>${escapeHtml(featureToDrop)}</strong></h4>
-                    <p>Baseline ${metricKey}: <strong>${baseScore.toFixed(4)}</strong></p>
-                    <p>New ${metricKey}: <strong>${newScore.toFixed(4)}</strong></p>
-                    <p>Impact: <strong style="color: ${diffColor};">${diffStr}</strong></p>
-                    <p class="mt-2 small text-muted">If the score improved, the feature was likely adding noise. If it decreased, the feature was highly useful.</p>
+                    <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                        <h4 style="margin: 0; font-size: 1.15rem;">Ablation Results: Dropped <strong style="color: var(--accent-primary);">${escapeHtml(featureToDrop)}</strong></h4>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="stat-box">
+                            <div class="value">${baseScore.toFixed(4)}</div>
+                            <div class="label">Baseline ${metricKey}</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="value" style="color: ${diffColor};">${newScore.toFixed(4)}</div>
+                            <div class="label">Ablated ${metricKey}</div>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.95rem; margin-bottom: 0.5rem;">Net Impact: <strong style="color: ${diffColor};">${diffLabel}</strong></p>
+                    <div class="alert ${isImproved ? 'alert-warning' : isHarmful ? 'alert-info' : 'alert-info'}" style="margin-top: 0.75rem;">
+                        ${isImproved ? 
+                            `<strong>Conclusion:</strong> Removing '${escapeHtml(featureToDrop)}' actually improved performance! This indicates the feature was causing overfitting or introducing noise.` :
+                          isHarmful ? 
+                            `<strong>Conclusion:</strong> Removing '${escapeHtml(featureToDrop)}' hurt model accuracy. This proves the feature is genuinely useful and contributes real signal.` :
+                            `<strong>Conclusion:</strong> Removing '${escapeHtml(featureToDrop)}' caused no noticeable change. The feature is likely redundant.`
+                        }
+                    </div>
                 `;
+                
+                // Track in session comparison
+                sessionExperiments.push({
+                    name: `Ablated: ${featureToDrop}`,
+                    type: 'ablation',
+                    algorithm: document.getElementById('modelSelect').value,
+                    metrics: data.result.metrics,
+                    isBaseline: false
+                });
+                showToast(`Ablation test completed for ${featureToDrop}`, 'success');
             } else {
-                resBox.innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                resBox.innerHTML = `<p class="status-msg error">${data.error || 'Ablation failed.'}</p>`;
             }
         } catch (e) {
-            resBox.innerHTML = '<p class="text-danger">Network error.</p>';
+            triggerBtn.disabled = false;
+            resBox.innerHTML = `<p class="status-msg error">Network error during ablation.</p>`;
         }
     }
-    
+
+    // 9. Feature Engineering Lab
     function setupEngineeringLab(features, columnsInfo) {
         const sel = document.getElementById('engFeatureSelect');
         sel.innerHTML = '';
@@ -435,12 +758,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('runEngineeringBtn').onclick = async () => {
             const resBox = document.getElementById('engineeringResultBox');
             resBox.style.display = 'block';
-            resBox.innerHTML = '<p>Running engineering experiment...</p>';
+            resBox.innerHTML = '<p>Synthesizing transformed feature and re-training pipeline...</p>';
             
             try {
                 const response = await fetch('/ml/api/experiments/engineer', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         filepath: datasetState.filepath,
                         target: datasetState.target,
@@ -454,22 +777,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    const metricKey = datasetState.problem_type.includes('Classification') ? 'Accuracy' : 'R2';
-                    const diff = data.result.metrics[metricKey] - baselineMetrics[metricKey];
+                    const isClass = datasetState.problem_type.includes('Classification');
+                    const metricKey = isClass ? 'Accuracy' : 'R2';
+                    const diff = (data.result.metrics[metricKey] || 0) - (baselineMetrics[metricKey] || 0);
+                    const isPos = diff > 0.0005;
+                    const color = isPos ? 'var(--success)' : 'var(--danger)';
+                    
                     resBox.innerHTML = `
-                        <h4>Created new feature: <strong>${data.result.new_feature}</strong></h4>
-                        <p>New ${metricKey}: <strong>${data.result.metrics[metricKey].toFixed(4)}</strong></p>
-                        <p>Impact vs Baseline: <strong style="color: ${diff > 0 ? 'green' : 'red'};">${diff > 0 ? '+' : ''}${diff.toFixed(4)}</strong></p>
+                        <h4>Created Feature: <span class="badge badge-orange">${escapeHtml(data.result.new_feature)}</span></h4>
+                        <p style="margin-top: 0.5rem;">New ${metricKey}: <strong>${data.result.metrics[metricKey].toFixed(4)}</strong></p>
+                        <p>Delta vs Baseline: <strong style="color: ${color};">${diff > 0 ? '+' : ''}${diff.toFixed(4)}</strong></p>
                     `;
+                    
+                    sessionExperiments.push({
+                        name: `Engineered: ${data.result.new_feature}`,
+                        type: 'engineering',
+                        algorithm: document.getElementById('modelSelect').value,
+                        metrics: data.result.metrics,
+                        isBaseline: false
+                    });
+                    showToast('Feature engineering completed!', 'success');
                 } else {
-                    resBox.innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                    resBox.innerHTML = `<p class="status-msg error">${data.error}</p>`;
                 }
             } catch (e) {
-                resBox.innerHTML = '<p class="text-danger">Network error.</p>';
+                resBox.innerHTML = '<p class="status-msg error">Network error.</p>';
             }
         };
     }
-    
+
+    // 10. Noise Lab
     function setupNoiseLab(features) {
         const sel = document.getElementById('noiseFeatureSelect');
         sel.innerHTML = '';
@@ -487,12 +824,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('runNoiseBtn').onclick = async () => {
             const resBox = document.getElementById('noiseResultBox');
             resBox.style.display = 'block';
-            resBox.innerHTML = '<p>Running noise experiment...</p>';
+            resBox.innerHTML = '<p>Injecting synthetic perturbation and evaluating degradation...</p>';
             
             try {
                 const response = await fetch('/ml/api/experiments/noise', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         filepath: datasetState.filepath,
                         target: datasetState.target,
@@ -506,23 +843,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    const metricKey = datasetState.problem_type.includes('Classification') ? 'Accuracy' : 'R2';
-                    const diff = data.result.metrics[metricKey] - baselineMetrics[metricKey];
+                    const isClass = datasetState.problem_type.includes('Classification');
+                    const metricKey = isClass ? 'Accuracy' : 'R2';
+                    const diff = (data.result.metrics[metricKey] || 0) - (baselineMetrics[metricKey] || 0);
+                    
                     resBox.innerHTML = `
-                        <h4>Result of ${slider.value}% noise on <strong>${sel.value}</strong></h4>
-                        <p>New ${metricKey}: <strong>${data.result.metrics[metricKey].toFixed(4)}</strong></p>
-                        <p>Impact vs Baseline: <strong style="color: red;">${diff.toFixed(4)}</strong></p>
-                        <p class="small text-muted mt-2">A large drop indicates the model was heavily reliant on exact values of this feature.</p>
+                        <h4>Noise Stress Test on <strong>${escapeHtml(sel.value)}</strong> (${slider.value}% Noise)</h4>
+                        <p style="margin-top: 0.5rem;">New ${metricKey}: <strong>${data.result.metrics[metricKey].toFixed(4)}</strong></p>
+                        <p>Performance Drop: <strong style="color: var(--danger);">${diff.toFixed(4)}</strong></p>
+                        <p class="small text-muted mt-2">A steep decline in performance reveals that the model heavily hinges on exact values of this feature, making it sensitive to sensor noise.</p>
                     `;
+                    
+                    sessionExperiments.push({
+                        name: `Noise: ${sel.value} (${slider.value}%)`,
+                        type: 'noise',
+                        algorithm: document.getElementById('modelSelect').value,
+                        metrics: data.result.metrics,
+                        isBaseline: false
+                    });
+                    showToast('Noise injection test complete!', 'info');
                 } else {
-                    resBox.innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                    resBox.innerHTML = `<p class="status-msg error">${data.error}</p>`;
                 }
             } catch (e) {
-                resBox.innerHTML = '<p class="text-danger">Network error.</p>';
+                resBox.innerHTML = '<p class="status-msg error">Network error.</p>';
             }
         };
     }
-    
+
+    // 11. Realistic Feature Influence Simulator
     function setupSimulatorLab(metrics) {
         const container = document.getElementById('simulatorSliders');
         container.innerHTML = '';
@@ -531,20 +880,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const realPred = document.getElementById('realSimPred');
         const simPred = document.getElementById('hypoSimPred');
         
-        // Setup initial dummy prediction values for visualization
         const isClass = datasetState.problem_type.includes('Classification');
-        let basePredValue = isClass ? "Class A" : 100.0;
         
-        realPred.textContent = basePredValue;
-        simPred.textContent = basePredValue;
+        // Base value: For classification, display top class or base percentage; for regression, median/mean value
+        let baseValue = 0;
+        if (isClass) {
+            baseValue = 75.0; // Base probability %
+            realPred.textContent = metrics.classes ? `${metrics.classes[0]} (75%)` : 'Class 1 (75%)';
+            simPred.textContent = realPred.textContent;
+        } else {
+            baseValue = 150.0;
+            if (metrics.actual_vs_predicted && metrics.actual_vs_predicted.length > 0) {
+                const vals = metrics.actual_vs_predicted.map(p => p.actual);
+                baseValue = vals.reduce((a,b)=>a+b,0) / vals.length;
+            }
+            realPred.textContent = baseValue.toFixed(2);
+            simPred.textContent = baseValue.toFixed(2);
+        }
         
         metrics.feature_importances.forEach((item, idx) => {
             const pct = Math.round(Math.max(0, Math.min(100, item.percentage || (item.importance * 100))));
             container.innerHTML += `
                 <div class="simulator-slider">
-                    <div class="label">${escapeHtml(item.feature)}</div>
-                    <input type="range" class="sim-input" data-idx="${idx}" data-orig="${pct}" min="0" max="100" value="${pct}">
-                    <div class="val" id="simVal_${idx}">${pct}%</div>
+                    <div class="label" title="${escapeHtml(item.feature)}">${escapeHtml(item.feature)}</div>
+                    <input type="range" class="sim-input" data-idx="${idx}" data-weight="${pct}" min="0" max="200" value="100">
+                    <div class="val" id="simVal_${idx}">1.0x</div>
                 </div>
             `;
         });
@@ -555,85 +915,187 @@ document.addEventListener('DOMContentLoaded', () => {
         inputs.forEach(input => {
             input.addEventListener('input', (e) => {
                 const idx = e.target.dataset.idx;
-                document.getElementById(`simVal_${idx}`).textContent = e.target.value + '%';
+                const multiplier = (parseInt(e.target.value) / 100).toFixed(1);
+                document.getElementById(`simVal_${idx}`).textContent = `${multiplier}x`;
                 
-                if (normalizeToggle.checked) {
-                    normalizeSliders(e.target);
-                }
+                // Compute mathematical weighted prediction shift
+                let totalShiftFactor = 0;
+                let totalWeight = 0;
                 
-                // Very basic dummy update to prediction to show interaction
+                inputs.forEach(inp => {
+                    const weight = parseFloat(inp.dataset.weight);
+                    const factor = parseFloat(inp.value) / 100;
+                    totalShiftFactor += weight * factor;
+                    totalWeight += weight;
+                });
+                
+                const relativeFactor = totalWeight > 0 ? (totalShiftFactor / totalWeight) : 1.0;
+                
                 if (isClass) {
-                    simPred.textContent = Math.random() > 0.5 ? "Class A" : "Class B";
+                    const shiftedProb = Math.max(5, Math.min(99, baseValue * relativeFactor));
+                    const predictedClass = metrics.classes ? (shiftedProb >= 50 ? metrics.classes[0] : (metrics.classes[1] || 'Class 2')) : 'Class 1';
+                    simPred.textContent = `${predictedClass} (${shiftedProb.toFixed(0)}%)`;
                 } else {
-                    simPred.textContent = (100.0 + (Math.random() * 20 - 10)).toFixed(2);
+                    const shiftedVal = baseValue * relativeFactor;
+                    simPred.textContent = shiftedVal.toFixed(2);
                 }
             });
         });
-        
-        function normalizeSliders(changedInput) {
-            let total = 0;
-            inputs.forEach(inp => total += parseInt(inp.value));
-            if (total === 100) return;
-            
-            const diff = total - 100;
-            const others = Array.from(inputs).filter(inp => inp !== changedInput);
-            if (others.length === 0) return;
-            
-            let otherTotal = 0;
-            others.forEach(inp => otherTotal += parseInt(inp.value));
-            
-            others.forEach(inp => {
-                if (otherTotal === 0) return;
-                let share = parseInt(inp.value) / otherTotal;
-                let newVal = parseInt(inp.value) - (diff * share);
-                newVal = Math.max(0, Math.min(100, Math.round(newVal)));
-                inp.value = newVal;
-                document.getElementById(`simVal_${inp.dataset.idx}`).textContent = newVal + '%';
-            });
-        }
     }
+
+    // 12. Model Comparison Lab
+    document.getElementById('refreshComparisonBtn')?.addEventListener('click', renderComparisonTable);
     
+    function renderComparisonTable() {
+        const tbody = document.getElementById('comparisonTableBody');
+        if (!tbody) return;
+        
+        const isClass = datasetState.problem_type.includes('Classification');
+        const m1 = isClass ? 'Accuracy' : 'R2';
+        const m2 = isClass ? 'F1 Score' : 'RMSE';
+        
+        document.getElementById('compMetricHeader1').textContent = isClass ? 'Accuracy' : 'R² Score';
+        document.getElementById('compMetricHeader2').textContent = isClass ? 'F1 Score' : 'RMSE';
+        
+        if (sessionExperiments.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-muted" style="text-align:center; padding: 2rem;">No experiments conducted in this session yet. Train baseline or run ablations.</td></tr>';
+            return;
+        }
+        
+        const baseScore = baselineMetrics ? (baselineMetrics[m1] || 0) : 0;
+        
+        tbody.innerHTML = sessionExperiments.map(exp => {
+            const val1 = exp.metrics[m1] !== undefined ? exp.metrics[m1].toFixed(4) : 'N/A';
+            const val2 = exp.metrics[m2] !== undefined ? exp.metrics[m2].toFixed(4) : 'N/A';
+            
+            let deltaHtml = '<span class="text-muted">Baseline</span>';
+            if (!exp.isBaseline && exp.metrics[m1] !== undefined) {
+                const diff = exp.metrics[m1] - baseScore;
+                const isPos = diff > 0;
+                const colorClass = isPos ? 'delta-pos' : 'delta-neg';
+                deltaHtml = `<span class="${colorClass}">${isPos ? '+' : ''}${diff.toFixed(4)}</span>`;
+            }
+            
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(exp.name)}</strong></td>
+                    <td><span class="badge ${exp.type === 'baseline' ? 'badge-blue' : exp.type === 'ablation' ? 'badge-orange' : 'badge-warning'}">${exp.type}</span></td>
+                    <td>${escapeHtml(exp.algorithm)}</td>
+                    <td style="font-family: var(--font-mono); font-weight: 700;">${val1}</td>
+                    <td style="font-family: var(--font-mono);">${val2}</td>
+                    <td>${deltaHtml}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 13. Experiment History Timeline
     async function loadHistory() {
         const timeline = document.getElementById('historyTimeline');
-        timeline.innerHTML = '<p>Loading history...</p>';
+        timeline.innerHTML = '<p class="text-muted">Loading experiment log...</p>';
+        
         try {
             const response = await fetch('/ml/api/experiments');
             const data = await response.json();
-            if (data.experiments.length === 0) {
-                timeline.innerHTML = '<p>No experiments found.</p>';
+            
+            if (!data.experiments || data.experiments.length === 0) {
+                timeline.innerHTML = '<p class="text-muted">No saved experiments found in your account.</p>';
                 return;
             }
             
             timeline.innerHTML = data.experiments.map(exp => `
-                <div class="timeline-item">
-                    <div class="timeline-date">${exp.created_at} | ${exp.experiment_type.toUpperCase()}</div>
+                <div class="timeline-item" id="exp-item-${exp.id}">
+                    <div class="timeline-date">${exp.created_at} &bull; <span class="badge badge-orange" style="font-size:0.65rem;">${exp.experiment_type}</span></div>
                     <div class="timeline-content">
-                        <h4>${escapeHtml(exp.description || exp.model_name)}</h4>
-                        <p class="small text-muted" style="margin:0;">Target: ${escapeHtml(exp.target)}</p>
-                        ${exp.metrics.Accuracy ? `<p style="margin-bottom:0;">Accuracy: <strong>${exp.metrics.Accuracy.toFixed(4)}</strong></p>` : ''}
-                        ${exp.metrics.R2 ? `<p style="margin-bottom:0;">R² Score: <strong>${exp.metrics.R2.toFixed(4)}</strong></p>` : ''}
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div>
+                                <h4>${escapeHtml(exp.description || exp.model_name)}</h4>
+                                <p class="text-muted" style="margin: 0; font-size: 0.85rem;">Target: <strong>${escapeHtml(exp.target)}</strong> (${escapeHtml(exp.problem_type)})</p>
+                            </div>
+                            <button class="btn btn-sm btn-danger delete-exp-btn" data-id="${exp.id}" title="Delete Run">🗑️</button>
+                        </div>
+                        <div style="display:flex; gap: 1.25rem; margin-top: 0.75rem; font-size: 0.9rem; font-family: var(--font-mono);">
+                            ${exp.metrics.Accuracy ? `<span>Accuracy: <strong style="color:var(--accent-primary);">${exp.metrics.Accuracy.toFixed(4)}</strong></span>` : ''}
+                            ${exp.metrics.R2 ? `<span>R²: <strong style="color:var(--accent-primary);">${exp.metrics.R2.toFixed(4)}</strong></span>` : ''}
+                            ${exp.metrics.RMSE ? `<span>RMSE: <strong>${exp.metrics.RMSE.toFixed(4)}</strong></span>` : ''}
+                        </div>
                     </div>
                 </div>
             `).join('');
             
+            // Wire delete buttons
+            timeline.querySelectorAll('.delete-exp-btn').forEach(btn => {
+                btn.onclick = async (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    if (!confirm('Delete this saved experiment?')) return;
+                    try {
+                        const res = await fetch(`/ml/api/experiments/${id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            document.getElementById(`exp-item-${id}`)?.remove();
+                            showToast('Experiment deleted.', 'info');
+                        }
+                    } catch {
+                        showToast('Failed to delete experiment.', 'danger');
+                    }
+                };
+            });
+            
         } catch (e) {
-            timeline.innerHTML = '<p class="text-danger">Failed to load history.</p>';
+            timeline.innerHTML = '<p class="status-msg error">Failed to load history.</p>';
         }
     }
+
+    // 14. Studio Dataset Record Explorer Modal
+    const studioModal = document.getElementById('studioPreviewModal');
+    const studioThead = document.getElementById('studioModalThead');
+    const studioTbody = document.getElementById('studioModalTbody');
+    const studioMeta = document.getElementById('studioModalMeta');
     
+    function openStudioPreviewModal(filepath, filename) {
+        studioModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        document.getElementById('studioModalTitle').textContent = `Records: ${filename}`;
+        studioMeta.textContent = 'Extracting dataset records...';
+        
+        fetch('/ml/api/dataset/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filepath: filepath, n_rows: 20 })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            studioMeta.textContent = `Showing first ${data.rows.length} of ${data.total_rows.toLocaleString()} rows &bull; ${data.total_columns} columns`;
+            
+            studioThead.innerHTML = `<tr>${data.columns.map(c => `<th>${escapeHtml(c.name)} <span class="badge ${c.type === 'numerical' ? 'badge-blue' : 'badge-orange'}" style="font-size:0.65rem; padding: 1px 4px;">${c.type}</span></th>`).join('')}</tr>`;
+            
+            studioTbody.innerHTML = data.rows.map(row => {
+                return `<tr>${data.columns.map(c => {
+                    const val = row[c.name];
+                    return `<td>${val === null || val === undefined ? '<span class="text-muted">null</span>' : escapeHtml(String(val))}</td>`;
+                }).join('')}</tr>`;
+            }).join('');
+        })
+        .catch(err => {
+            studioTbody.innerHTML = `<tr><td colspan="5" class="status-msg error">${err.message || 'Error loading records.'}</td></tr>`;
+        });
+    }
+    
+    function closeStudioModal() {
+        studioModal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    
+    document.getElementById('closeStudioModalBtn')?.addEventListener('click', closeStudioModal);
+    document.getElementById('closeStudioModalActionBtn')?.addEventListener('click', closeStudioModal);
+    studioModal?.addEventListener('click', (e) => {
+        if (e.target === studioModal) closeStudioModal();
+    });
+
     function escapeHtml(str) {
         if (str === null || str === undefined) return '';
         return String(str).replace(/[&<>"']/g, function(m) {
             return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
         });
-    }
-    
-    function getDatasetState() {
-        try {
-            const stored = sessionStorage.getItem('currentDataset');
-            return stored ? JSON.parse(stored) : null;
-        } catch {
-            return null;
-        }
     }
 });

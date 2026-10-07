@@ -1,72 +1,228 @@
 {% extends 'base.html' %}
 
+{% block title %}PatternLab — Interactive Machine Learning Studio{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 {% endblock %}
 
 {% block content %}
 <div class="dashboard-hero">
-    <h1>PatternLab</h1>
-    <p class="subtitle">Explore your data. Understand ML.</p>
-    <p>Experiment with data, build models, and understand the patterns within them.</p>
+    <div class="hero-pill">
+        <span>✨</span> Next-Gen Machine Learning Explainability Studio
+    </div>
+    <h1>Explore Your Data. <span class="gradient-text">Understand ML.</span></h1>
+    <p class="subtitle">Dissect how machine learning algorithms learn, discover data leakage, evaluate true feature usefulness, and demystify model predictions through hands-on laboratory experimentation.</p>
+    
+    <div class="hero-stats-banner">
+        <div class="hero-stat-item">
+            <div class="num">8+</div>
+            <div class="desc">ML Algorithms</div>
+        </div>
+        <div class="hero-stat-item">
+            <div class="num">6</div>
+            <div class="desc">Interactive Labs</div>
+        </div>
+        <div class="hero-stat-item">
+            <div class="num">2D &amp; 3D</div>
+            <div class="desc">Projections &amp; Graphs</div>
+        </div>
+        <div class="hero-stat-item">
+            <div class="num">100%</div>
+            <div class="desc">Transparent</div>
+        </div>
+    </div>
 </div>
 
-{% if current_user.is_authenticated %}
+{% if current_user.is_authenticated and user_datasets %}
 <div class="dashboard-section">
-    <h2>Your Datasets</h2>
-    {% if user_datasets %}
+    <div class="section-header">
+        <div>
+            <h2>Your Stored Datasets</h2>
+            <p class="text-muted">Personal datasets uploaded to your account.</p>
+        </div>
+        <span class="badge badge-blue">{{ user_datasets|length }} / 15 Saved</span>
+    </div>
+    
     <div class="datasets-grid">
         {% for ds in user_datasets %}
         <div class="dataset-card" id="dataset-card-{{ ds.id }}">
-            <h4>{{ ds.filename }}</h4>
-            <p>{{ ds.row_count }} rows &times; {{ ds.column_count }} cols</p>
-            <p class="small text-muted">Uploaded: {{ ds.created_at.strftime('%Y-%m-%d') }}</p>
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
-                <button class="btn btn-secondary btn-sm load-db-btn" data-filepath="{{ ds.storage_path }}" data-filename="{{ ds.filename }}">Load in Builder</button>
-                <button class="btn btn-sm delete-db-btn" data-id="{{ ds.id }}" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">Delete</button>
+            <div>
+                <h4>📄 {{ ds.filename }}</h4>
+                <div class="dataset-card-meta">
+                    <span><strong>{{ ds.row_count }}</strong> rows &bull; <strong>{{ ds.column_count }}</strong> cols</span>
+                    <span class="text-muted" style="display: block; font-size: 0.8rem; margin-top: 2px;">Uploaded {{ ds.created_at.strftime('%b %d, %Y') }}</span>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                <button class="btn btn-secondary btn-sm preview-dataset-btn" data-filepath="{{ ds.storage_path }}" data-filename="{{ ds.filename }}" style="flex: 1;">👁️ Preview</button>
+                <button class="btn btn-primary btn-sm load-db-btn" data-filepath="{{ ds.storage_path }}" data-filename="{{ ds.filename }}" style="flex: 1.2;">Load in Studio</button>
+                <button class="btn btn-sm btn-danger delete-db-btn" data-id="{{ ds.id }}" title="Delete dataset">🗑️</button>
             </div>
         </div>
         {% endfor %}
     </div>
-    {% else %}
-    <p>You haven't uploaded any datasets yet. Get started below!</p>
-    {% endif %}
 </div>
 {% endif %}
 
-<div class="dashboard-actions" style="margin-top: 2rem;">
+<div class="dashboard-actions">
+    <!-- Upload Card -->
     <div class="action-card">
-        <h3>Upload Dataset</h3>
-        <p>Start exploring your own data (Max 5MB, CSV format).</p>
+        <h3><span>📤</span> Upload Dataset</h3>
+        <p>Drop your own tabular CSV dataset to analyze distributions, identify target variables, and train custom models.</p>
+        
         <form id="uploadForm" enctype="multipart/form-data">
-            <input type="file" id="csvFile" name="file" accept=".csv" class="file-input">
-            <button type="submit" class="btn btn-primary">Upload CSV</button>
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">📁</div>
+                <div class="drop-zone-text">Click or drag &amp; drop your CSV file here</div>
+                <div class="drop-zone-hint">Supports .csv up to 10MB</div>
+                <input type="file" id="csvFile" name="file" accept=".csv" class="file-input">
+            </div>
+            
+            <div class="selected-file-info" id="selectedFileInfo">
+                <span id="selectedFileName">filename.csv</span>
+                <button type="button" class="btn btn-sm btn-outline" id="clearFileBtn">Change</button>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" id="uploadSubmitBtn" style="width: 100%;" disabled>
+                <span>Upload &amp; Analyze</span>
+            </button>
         </form>
         <div id="uploadStatus" class="status-msg"></div>
     </div>
 
+    <!-- Sample Datasets Card -->
     <div class="action-card">
-        <h3>Explore with Sample Data</h3>
-        <p>Try out the platform instantly with curated sample datasets.</p>
-        <div class="sample-datasets">
-            <button class="btn btn-secondary demo-btn" data-filename="iris.csv">🌸 Iris (Multiclass)</button>
-            <button class="btn btn-secondary demo-btn" data-filename="customer_churn.csv">👥 Customer Churn (Binary)</button>
-            <button class="btn btn-secondary demo-btn" data-filename="house_prices.csv">🏠 House Prices (Regression)</button>
+        <h3><span>🧪</span> Instant Demo Datasets</h3>
+        <p>Start learning immediately without uploading anything. Choose from these curated tabular challenges:</p>
+        
+        <div class="demo-datasets-grid">
+            <!-- Iris -->
+            <div class="demo-card">
+                <div>
+                    <div class="demo-card-header">
+                        <span class="demo-card-title">🌸 Iris Flower</span>
+                        <span class="badge badge-orange">Multiclass</span>
+                    </div>
+                    <p class="demo-card-desc">150 rows &bull; 4 features. Classify flower species from petal &amp; sepal measurements.</p>
+                </div>
+                <div class="demo-card-actions">
+                    <button class="btn btn-outline btn-sm preview-demo-btn" data-filename="iris.csv">Preview</button>
+                    <button class="btn btn-secondary btn-sm demo-btn" data-filename="iris.csv">Load</button>
+                </div>
+            </div>
+
+            <!-- Customer Churn -->
+            <div class="demo-card">
+                <div>
+                    <div class="demo-card-header">
+                        <span class="demo-card-title">👥 Telco Churn</span>
+                        <span class="badge badge-blue">Binary</span>
+                    </div>
+                    <p class="demo-card-desc">7,000+ customer records. Identify subscribers at high risk of cancellation.</p>
+                </div>
+                <div class="demo-card-actions">
+                    <button class="btn btn-outline btn-sm preview-demo-btn" data-filename="customer_churn.csv">Preview</button>
+                    <button class="btn btn-secondary btn-sm demo-btn" data-filename="customer_churn.csv">Load</button>
+                </div>
+            </div>
+
+            <!-- House Prices -->
+            <div class="demo-card">
+                <div>
+                    <div class="demo-card-header">
+                        <span class="demo-card-title">🏠 House Valuations</span>
+                        <span class="badge badge-success">Regression</span>
+                    </div>
+                    <p class="demo-card-desc">Predict residential sale prices from living area, quality ratings, and rooms.</p>
+                </div>
+                <div class="demo-card-actions">
+                    <button class="btn btn-outline btn-sm preview-demo-btn" data-filename="house_prices.csv">Preview</button>
+                    <button class="btn btn-secondary btn-sm demo-btn" data-filename="house_prices.csv">Load</button>
+                </div>
+            </div>
+
+            <!-- Heart Disease -->
+            <div class="demo-card">
+                <div>
+                    <div class="demo-card-header">
+                        <span class="demo-card-title">❤️ Heart Disease</span>
+                        <span class="badge badge-danger">Binary</span>
+                    </div>
+                    <p class="demo-card-desc">Clinical patient indicators for cardiovascular diagnosis and risk analysis.</p>
+                </div>
+                <div class="demo-card-actions">
+                    <button class="btn btn-outline btn-sm preview-demo-btn" data-filename="heart_data.csv">Preview</button>
+                    <button class="btn btn-secondary btn-sm demo-btn" data-filename="heart_data.csv">Load</button>
+                </div>
+            </div>
         </div>
         <div id="demoStatus" class="status-msg"></div>
     </div>
 </div>
 
 <div class="dashboard-modules">
-    <h2>What do you want to do?</h2>
+    <h2>Explore The Platform</h2>
     <div class="modules-grid">
         <div class="module-card">
-            <h3><a href="{{ url_for('ml.builder') }}">ML MODEL BUILDER</a></h3>
-            <p>Build, tune, and evaluate machine learning models with interactive explanations.</p>
+            <div>
+                <div class="module-icon">🤖</div>
+                <h3><a href="{{ url_for('ml.builder') }}">Interactive ML Studio</a></h3>
+                <p>Build, tune, and dissect machine learning models. Test data leakage, remove features to test usefulness vs influence, and simulate predictions.</p>
+                <ul class="module-features">
+                    <li>Cross-validation fold consistency verification</li>
+                    <li>Feature ablation lab (influence vs usefulness)</li>
+                    <li>Noise injection resilience stress testing</li>
+                    <li>Dynamic feature transformations (x², log, √x)</li>
+                    <li>Real-time hypothetical influence simulator</li>
+                </ul>
+            </div>
+            <a href="{{ url_for('ml.builder') }}" class="btn btn-primary" style="margin-top: 1rem;">Launch ML Studio &rarr;</a>
         </div>
+        
         <div class="module-card">
-            <h3><a href="{{ url_for('visualization.visualization_page') }}">DATA VISUALIZATION</a></h3>
-            <p>Explore 3D feature relationships, PCA, and t-SNE projections.</p>
+            <div>
+                <div class="module-icon">🌐</div>
+                <h3><a href="{{ url_for('visualization.visualization_page') }}">Data &amp; Pattern Visualizer</a></h3>
+                <p>Observe high-dimensional feature associations in an interactive 3D physics network or project samples using PCA and t-SNE algorithms.</p>
+                <ul class="module-features">
+                    <li>3D force-directed feature correlation graph</li>
+                    <li>PCA (Principal Component Analysis) 2D/3D projections</li>
+                    <li>t-SNE non-linear manifold clustering</li>
+                    <li>Interactive node correlation inspection &amp; filtering</li>
+                    <li>Seamless export of curated feature sets to ML Studio</li>
+                </ul>
+            </div>
+            <a href="{{ url_for('visualization.visualization_page') }}" class="btn btn-secondary" style="margin-top: 1rem;">Launch 3D Visualizer &rarr;</a>
+        </div>
+    </div>
+</div>
+
+<!-- Dataset Preview Modal -->
+<div class="modal-backdrop" id="previewModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h3 id="modalDatasetTitle" style="margin-bottom: 0.2rem;">Dataset Preview</h3>
+                <p id="modalDatasetMeta" class="text-muted" style="font-size: 0.85rem; margin: 0;">Showing first rows</p>
+            </div>
+            <button class="btn btn-sm btn-outline" id="closeModalBtn" style="padding: 0.3rem 0.6rem;">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="modalLoading" style="text-align: center; padding: 2rem;">
+                <p>Loading dataset sample...</p>
+            </div>
+            <div class="preview-table-container" id="modalTableWrapper" style="display: none;">
+                <table class="preview-table" id="modalTable">
+                    <thead id="modalThead"></thead>
+                    <tbody id="modalTbody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="modalCloseActionBtn">Close</button>
+            <button class="btn btn-primary" id="modalLoadInStudioBtn">Load in Studio &rarr;</button>
         </div>
     </div>
 </div>

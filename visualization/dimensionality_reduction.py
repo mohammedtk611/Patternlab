@@ -15,6 +15,11 @@ def reduce_dimensions(df, features, method='pca', n_components=3):
     if X.empty:
         return None, "No numerical features available for dimensionality reduction."
         
+    # Cap sample size for responsive t-SNE / 3D rendering
+    max_samples = 1500
+    if len(X) > max_samples:
+        X = X.sample(n=max_samples, random_state=42)
+        
     # Impute missing cells
     imputer = SimpleImputer(strategy='mean')
     X_imputed = imputer.fit_transform(X)
@@ -28,16 +33,19 @@ def reduce_dimensions(df, features, method='pca', n_components=3):
         return None, "Dataset is empty."
         
     actual_components = min(n_components, n_features, n_samples)
+    extra_info = {}
     
     try:
         if method == 'pca':
             reducer = PCA(n_components=actual_components, random_state=42)
             projections = reducer.fit_transform(X_scaled)
+            extra_info['explained_variance'] = [round(float(v) * 100, 2) for v in reducer.explained_variance_ratio_]
+            extra_info['total_variance_explained'] = round(float(np.sum(reducer.explained_variance_ratio_)) * 100, 2)
         elif method == 'tsne':
             # Adaptive perplexity for small datasets
-            perplexity = min(30, max(1, (n_samples - 1) // 3))
+            perplexity = min(30, max(2, (n_samples - 1) // 3))
             tsne_comp = min(actual_components, 3)
-            reducer = TSNE(n_components=tsne_comp, perplexity=perplexity, random_state=42)
+            reducer = TSNE(n_components=tsne_comp, perplexity=perplexity, random_state=42, n_iter=600)
             projections = reducer.fit_transform(X_scaled)
         elif method == 'umap':
             try:
@@ -45,9 +53,9 @@ def reduce_dimensions(df, features, method='pca', n_components=3):
                 reducer = umap.UMAP(n_components=actual_components, random_state=42)
                 projections = reducer.fit_transform(X_scaled)
             except ImportError:
-                # Fallback to PCA if umap is not installed
                 reducer = PCA(n_components=actual_components, random_state=42)
                 projections = reducer.fit_transform(X_scaled)
+                extra_info['explained_variance'] = [round(float(v) * 100, 2) for v in reducer.explained_variance_ratio_]
         else:
             return None, f"Invalid dimensionality reduction method '{method}'."
             
@@ -64,6 +72,6 @@ def reduce_dimensions(df, features, method='pca', n_components=3):
             }
             result.append(point)
             
-        return result, None
+        return {"points": result, "meta": extra_info}, None
     except Exception as e:
         return None, f"Dimensionality reduction failed: {str(e)}"

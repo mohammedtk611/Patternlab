@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block title %}PatternLab — 3D & 2D Data Visualizer{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visualization.css') }}">
 <script src="https://unpkg.com/3d-force-graph"></script>
@@ -7,53 +9,82 @@
 
 {% block content %}
 <div class="vis-container">
-    <h1>Data Visualization</h1>
-    
-    <div id="datasetState" class="state-panel">
-        <div id="visHeader" class="empty-state">
-            <p>No dataset loaded. Go to the dashboard to load a dataset.</p>
-            <a href="/" class="btn btn-primary">Go to Dashboard</a>
+    <div class="vis-header-row">
+        <div>
+            <h1>Data &amp; Feature Visualizer</h1>
+            <p class="text-muted">Observe high-dimensional associations in 3D physics networks or project manifold clusters with PCA &amp; t-SNE.</p>
+        </div>
+        
+        <!-- Dataset Switcher on Visualization Page -->
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <label for="datasetSelectVis" style="font-weight: 600; font-size: 0.9rem;">Dataset:</label>
+            <select id="datasetSelectVis" class="form-control" style="width: auto; min-width: 220px;">
+                <optgroup label="Demo Datasets">
+                    <option value="iris.csv">🌸 Iris Flower</option>
+                    <option value="customer_churn.csv">👥 Telco Churn</option>
+                    <option value="house_prices.csv">🏠 House Valuations</option>
+                    <option value="heart_data.csv">❤️ Heart Disease</option>
+                </optgroup>
+                {% if user_datasets %}
+                <optgroup label="Your Datasets">
+                    {% for ds in user_datasets %}
+                    <option value="{{ ds.storage_path }}" data-user="true">{{ ds.filename }}</option>
+                    {% endfor %}
+                </optgroup>
+                {% endif %}
+            </select>
         </div>
     </div>
     
-    <div id="visWorkspace" style="display: none;">
+    <div id="visWorkspace">
+        <!-- Controls Panel -->
         <div class="vis-controls">
             <div class="form-group">
-                <label>Visualization Mode:</label>
+                <label for="visMode">Visualization Mode:</label>
                 <select id="visMode" class="form-control">
-                    <option value="graph">Feature Relationship Graph</option>
-                    <option value="pca">PCA Projection</option>
-                    <option value="tsne">t-SNE Projection</option>
+                    <option value="graph">🌐 Feature Correlation Network</option>
+                    <option value="pca">📐 PCA Dimensionality Reduction</option>
+                    <option value="tsne">🧬 t-SNE Manifold Clustering</option>
                 </select>
             </div>
             
             <div id="graphControls" class="mode-controls">
-                <p>Click on nodes to inspect features or experiment with weights.</p>
-                <button id="buildModelBtn" class="btn btn-primary">Send to ML Builder</button>
+                <div class="alert alert-info" style="font-size: 0.85rem; padding: 0.75rem;">
+                    <div>Click nodes in the 3D viewport to inspect correlations and toggle features.</div>
+                </div>
+                <button id="buildModelBtn" class="btn btn-primary" style="width: 100%;">🚀 Launch in ML Studio</button>
             </div>
             
             <div id="dimControls" class="mode-controls" style="display: none;">
-                <label>Dimensions:</label>
-                <select id="dimSelect" class="form-control">
-                    <option value="3">3D</option>
-                    <option value="2">2D</option>
-                </select>
-                <button id="projectBtn" class="btn btn-secondary" style="margin-top: 10px;">Run Projection</button>
+                <div class="form-group">
+                    <label for="dimSelect">Projection Dimensions:</label>
+                    <select id="dimSelect" class="form-control">
+                        <option value="3">3D Spatial Projection</option>
+                        <option value="2">2D Plane Projection</option>
+                    </select>
+                </div>
+                
+                <div id="varianceBanner" style="display: none; font-size: 0.85rem; padding: 0.75rem; background: var(--bg-surface-elevated); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                    <span>Total Variance Captured: <strong id="varianceExplainedText" style="color: var(--accent-primary); font-family: var(--font-mono);">--</strong></span>
+                </div>
+                
+                <button id="projectBtn" class="btn btn-primary" style="width: 100%;">Run Projection</button>
             </div>
             
+            <!-- Node Inspector -->
             <div id="nodeInspector" class="node-inspector" style="display: none;">
-                <h3 id="nodeName">Feature Name</h3>
-                <p>Type: <span id="nodeType"></span></p>
-                <p>Correlation: <span id="nodeCorr"></span></p>
-                <label>Experimental Weight:</label>
-                <input type="range" id="weightSlider" min="0" max="2" step="0.1" value="1">
-                <span id="weightValue">1.0x</span>
-                <br><br>
-                <button id="toggleFeatureBtn" class="btn btn-secondary btn-sm">Remove Feature</button>
+                <h3 id="nodeName">Feature</h3>
+                <p>Type: <span id="nodeType" class="badge badge-orange" style="font-size: 0.7rem;"></span></p>
+                <p>Target Association: <strong id="nodeCorr" style="font-family: var(--font-mono); color: var(--accent-primary);"></strong></p>
+                <button id="toggleFeatureBtn" class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 0.5rem;">Remove from Analysis</button>
             </div>
         </div>
         
-        <div class="vis-canvas">
+        <!-- Canvas Viewport -->
+        <div class="vis-canvas-wrapper">
+            <div class="vis-canvas-overlay">
+                <span id="canvasStatusBadge" class="badge">Feature Correlation Network</span>
+            </div>
             <div id="3d-graph"></div>
         </div>
     </div>

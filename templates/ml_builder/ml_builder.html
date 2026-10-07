@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block title %}PatternLab — Interactive Machine Learning Studio{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ml_builder.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -8,51 +10,96 @@
 {% block content %}
 <div class="ml-builder-container">
     <div class="builder-header">
-        <h1>Interactive ML Laboratory</h1>
-        <p class="subtitle">Understand how machine learning models are trained, evaluate feature importance vs usefulness, and experiment with your data.</p>
+        <div>
+            <h1>Interactive ML Studio</h1>
+            <p class="subtitle">Train models, observe prediction patterns, evaluate feature usefulness vs influence, and dissect algorithmic decisions.</p>
+        </div>
+        <div id="datasetQuickActions" style="display: none;">
+            <button class="btn btn-outline btn-sm" id="viewDatasetBtn">👁️ View Dataset Table</button>
+            <a href="/" class="btn btn-secondary btn-sm">Switch Dataset</a>
+        </div>
     </div>
     
-    <!-- Dataset & Setup -->
+    <!-- Dataset & Setup State -->
     <div id="setupState" class="state-panel">
         <div class="panel-header">
-            <h2>1. Dataset & Target Configuration</h2>
-        </div>
-        <div id="analysisContent" class="empty-state">
-            <p>No dataset loaded. Go to the dashboard to select or upload a dataset.</p>
-            <a href="/" class="btn btn-primary">Go to Dashboard</a>
+            <h2><span>1.</span> Dataset &amp; Model Architecture</h2>
+            <span id="setupStatusBadge" class="badge badge-blue">Setup Phase</span>
         </div>
         
-        <div id="configSection" style="display: none; margin-top: 20px;">
-            <!-- Target Selection -->
-            <div class="form-group">
-                <label for="targetSelect" style="font-weight: 600;">Select Target Variable (Prediction Goal):</label>
-                <select id="targetSelect" class="form-control"></select>
-                <div id="targetDescription" style="display:none; margin-top: 0.5rem; font-size: 0.95rem; color: var(--primary-color); background: #eff6ff; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #bfdbfe;">
-                    <strong>Problem Type:</strong> <span id="targetProblemType"></span>
+        <div id="analysisContent" class="empty-state">
+            <p>No dataset is currently loaded. Visit the dashboard to select a curated demo dataset or upload your own CSV.</p>
+            <a href="/" class="btn btn-primary">Go to Dashboard &rarr;</a>
+        </div>
+        
+        <div id="configSection" style="display: none; margin-top: 1.5rem;">
+            <div class="grid-2">
+                <!-- Target Selection -->
+                <div class="form-group">
+                    <label for="targetSelect">Target Variable (Prediction Goal):</label>
+                    <select id="targetSelect" class="form-control"></select>
+                    <div id="targetDescription" style="display:none; margin-top: 0.75rem;">
+                        <span class="badge badge-orange" id="targetProblemType"></span>
+                        <span class="text-muted" style="font-size: 0.85rem; margin-left: 0.5rem;" id="targetHint">Inferred prediction objective</span>
+                    </div>
+                </div>
+                
+                <!-- Model Algorithm Selection -->
+                <div class="form-group">
+                    <label for="modelSelect">Algorithm Selection:</label>
+                    <select id="modelSelect" class="form-control"></select>
+                    <div id="modelBadgeContainer" style="margin-top: 0.75rem;">
+                        <span id="modelCategoryBadge" class="badge badge-blue"></span>
+                    </div>
                 </div>
             </div>
             
-            <!-- Model Selection -->
-            <div class="form-group" style="margin-top: 1.5rem;">
-                <label for="modelSelect" style="font-weight: 600;">Choose Algorithm:</label>
-                <select id="modelSelect" class="form-control"></select>
-                <div id="modelDescription" style="display:none; margin-top: 0.5rem; font-size: 0.9rem; background: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0;">
-                    <p id="modelDescText" style="margin-bottom: 0.5rem; color: var(--text-main); font-weight: 500;"></p>
-                    <p style="margin-bottom: 0.25rem;"><strong style="color: var(--success-color);">Strength:</strong> <span id="modelStrength"></span></p>
-                    <p style="margin: 0;"><strong style="color: var(--error-color);">Weakness:</strong> <span id="modelWeakness"></span></p>
+            <!-- Model Description & Strengths -->
+            <div id="modelDescription" style="display:none; margin-top: 1rem; background: var(--bg-surface-elevated); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);">
+                <p id="modelDescText" style="margin-bottom: 0.75rem; color: var(--text-primary); font-weight: 500; font-size: 0.95rem;"></p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.875rem;">
+                    <div>
+                        <strong style="color: var(--success); display: block; margin-bottom: 0.2rem;">✓ Strengths:</strong>
+                        <span id="modelStrength" class="text-muted"></span>
+                    </div>
+                    <div>
+                        <strong style="color: var(--danger); display: block; margin-bottom: 0.2rem;">⚠ Trade-offs:</strong>
+                        <span id="modelWeakness" class="text-muted"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hyperparameter Tuning Accordion -->
+            <div id="hyperparamsAccordion" style="margin-top: 1.25rem;">
+                <div class="hyperparams-toggle" id="hyperparamsToggle">
+                    <span>⚙️ Tune Hyperparameters <span class="text-muted" style="font-size: 0.8rem; font-weight: normal;">(Optional)</span></span>
+                    <span id="hyperparamsChevron">▼</span>
+                </div>
+                <div class="hyperparams-body" id="hyperparamsBody">
+                    <div id="hyperparamsContainer">
+                        <!-- Dynamic sliders injected here based on algorithm -->
+                    </div>
                 </div>
             </div>
             
-            <div id="dataLeakageWarnings" class="alert alert-warning" style="display: none; margin-top: 15px;">
-                <strong>⚠️ Data Leakage Warning:</strong>
-                <ul id="warningList"></ul>
+            <!-- Data Leakage Warning -->
+            <div id="dataLeakageWarnings" class="alert alert-warning" style="display: none; margin-top: 1.25rem;">
+                <div>
+                    <strong>⚠️ Potential Data Leakage Detected:</strong>
+                    <ul id="warningList" style="margin-top: 0.35rem; padding-left: 1.25rem; font-size: 0.9rem;"></ul>
+                </div>
             </div>
             
-            <button id="trainBaselineBtn" class="btn btn-primary btn-lg" style="margin-top: 1.5rem;">Train Baseline Pipeline</button>
+            <div style="margin-top: 1.75rem; display: flex; align-items: center; gap: 1rem;">
+                <button id="trainBaselineBtn" class="btn btn-primary btn-lg">
+                    <span>🚀 Train Baseline Model</span>
+                </button>
+            </div>
             
             <div id="trainProgressContainer" style="display: none; margin-top: 1.5rem;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span id="trainStatusText">Training model & optimizing hyperparameters...</span>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                    <span id="trainStatusText" style="font-weight: 600;">Fitting transformers &amp; cross-validating...</span>
+                    <span id="trainPctText" style="font-family: var(--font-mono); color: var(--accent-primary);">0%</span>
                 </div>
                 <div class="progress-bar-track">
                     <div id="trainProgressBar" class="progress-bar-fill"></div>
@@ -61,181 +108,277 @@
         </div>
     </div>
     
-    <!-- Laboratory Tabs (Hidden until trained) -->
+    <!-- Laboratory State (Active after baseline is trained) -->
     <div id="laboratoryState" style="display: none;">
-        
-        <div class="lab-tabs">
-            <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-            <button class="tab-btn" data-tab="cv-lab">Cross-Validation</button>
-            <button class="tab-btn" data-tab="ablation-lab">Feature Ablation Lab</button>
-            <button class="tab-btn" data-tab="engineering-lab">Feature Engineering Lab</button>
-            <button class="tab-btn" data-tab="noise-lab">Noise Lab</button>
-            <button class="tab-btn" data-tab="simulator-lab">Influence Simulator</button>
-            <button class="tab-btn" data-tab="history-lab">Experiment History</button>
+        <div class="lab-tabs-wrapper">
+            <div class="lab-tabs">
+                <button class="tab-btn active" data-tab="dashboard">
+                    <span>📊</span> Overview &amp; Evaluation
+                </button>
+                <button class="tab-btn" data-tab="cv-lab">
+                    <span>🔄</span> Cross-Validation
+                </button>
+                <button class="tab-btn" data-tab="ablation-lab">
+                    <span>✂️</span> Feature Ablation
+                </button>
+                <button class="tab-btn" data-tab="engineering-lab">
+                    <span>⚡</span> Feature Engineering
+                </button>
+                <button class="tab-btn" data-tab="noise-lab">
+                    <span>📡</span> Noise Stress Test
+                </button>
+                <button class="tab-btn" data-tab="simulator-lab">
+                    <span>🎛️</span> Influence Simulator
+                </button>
+                <button class="tab-btn" data-tab="comparison-lab">
+                    <span>⚖️</span> Model Comparison
+                </button>
+                <button class="tab-btn" data-tab="history-lab">
+                    <span>📜</span> Experiment History
+                </button>
+            </div>
         </div>
         
         <div class="tab-content">
-            
-            <!-- Dashboard Tab -->
+            <!-- 1. Dashboard Tab -->
             <div id="dashboard" class="tab-pane active">
                 <div class="panel-header">
-                    <h2>Model Overview</h2>
+                    <h2>Model Overview &amp; Generalization Performance</h2>
+                    <span class="badge badge-success">Evaluated on 20% Unseen Test Split</span>
                 </div>
                 
                 <div class="grid-3" id="metricCards">
                     <!-- Metrics injected here -->
                 </div>
                 
-                <div class="explanation-box mt-3" id="modelExplanation">
-                    <!-- Explanation injected here -->
+                <div class="mt-3" id="modelExplanation">
+                    <!-- Automated natural language insight injected here -->
+                </div>
+
+                <!-- Classification: Confusion Matrix Visualizer -->
+                <div id="confusionMatrixContainer" class="cm-container" style="display: none;">
+                    <div class="cm-header">
+                        <h4><span>🎯</span> Confusion Matrix Heatmap</h4>
+                        <span class="text-muted" style="font-size: 0.85rem;">Rows: Actual Ground Truth &bull; Columns: Model Prediction</span>
+                    </div>
+                    <div class="cm-grid-wrapper" id="cmGridWrapper">
+                        <!-- Heatmap table injected here -->
+                    </div>
+                </div>
+
+                <!-- Regression: Scatter Plot & Residuals -->
+                <div id="regressionPlotContainer" class="regression-vis-container" style="display: none;">
+                    <div class="panel-header" style="border: none; padding-bottom: 0.5rem;">
+                        <h4 style="margin: 0; font-size: 1.15rem;"><span>📈</span> Actual vs. Predicted Values</h4>
+                        <span class="text-muted" style="font-size: 0.85rem;">Identity line (y = x) represents perfect prediction</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="regressionChart"></canvas>
+                    </div>
                 </div>
                 
-                <h3 class="mt-4">Feature Importance (Model Influence)</h3>
-                <p class="text-muted">Feature importance shows how much the trained model relies on a feature. It does not mean that the feature increases accuracy by this percentage.</p>
-                <div id="featureImportanceList" class="features-list">
-                    <!-- Feature importance injected here -->
+                <div style="margin-top: 2.5rem;">
+                    <h3>Feature Importance (Algorithmic Influence)</h3>
+                    <p class="text-muted" style="font-size: 0.9rem; margin-top: 0.25rem;">Feature importance quantifies how much the mathematical decision function relies on each input. Higher influence indicates stronger predictive weight.</p>
+                    <div id="featureImportanceList" class="features-list">
+                        <!-- Feature importance items injected here -->
+                    </div>
                 </div>
             </div>
             
-            <!-- Cross-Validation Lab -->
+            <!-- 2. Cross-Validation Lab -->
             <div id="cv-lab" class="tab-pane">
                 <div class="panel-header">
-                    <h2>Cross-Validation Lab</h2>
+                    <h2>Cross-Validation Consistency Lab</h2>
                 </div>
-                <p>A single train/test split can give a misleading result. Cross-validation checks whether the performance is consistent across different subsets of the training data.</p>
+                <p>A single test split can occasionally produce misleading optimistic or pessimistic results. K-Fold cross-validation divides data into multiple rotational partitions to measure genuine variance and reliability.</p>
                 
                 <div class="cv-stats mt-3" id="cvStats">
                     <!-- CV stats injected here -->
                 </div>
                 
-                <div class="chart-container mt-3">
+                <div class="chart-container mt-3" style="max-height: 280px;">
                     <canvas id="cvChart"></canvas>
                 </div>
             </div>
             
-            <!-- Feature Ablation Lab -->
+            <!-- 3. Feature Ablation Lab -->
             <div id="ablation-lab" class="tab-pane">
                 <div class="panel-header">
-                    <h2>Feature Ablation Lab</h2>
+                    <h2>Feature Ablation Laboratory</h2>
                 </div>
-                <div class="educational-rule alert alert-info">
-                    <strong>Educational Concept:</strong> High model influence does not necessarily mean high usefulness. 
-                    Remove a feature below to test its actual out-of-sample usefulness.
+                <div class="alert alert-info">
+                    <div>
+                        <strong>Key Educational Insight:</strong> High feature influence in a baseline model does not guarantee that the feature is actually beneficial! A feature might simply capture correlated noise or cause overfitting. Remove a feature below to test its actual out-of-sample usefulness.
+                    </div>
                 </div>
                 
                 <div class="grid-2">
                     <div>
-                        <h3>Select Feature to Remove:</h3>
-                        <div id="ablationFeatureList" class="list-group">
+                        <h4 style="margin-bottom: 0.75rem;">Select Feature to Ablate (Drop):</h4>
+                        <div id="ablationFeatureList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 380px; overflow-y: auto; padding-right: 0.5rem;">
                             <!-- Selectable features injected here -->
                         </div>
                     </div>
                     <div>
-                        <h3>Ablation Result:</h3>
+                        <h4 style="margin-bottom: 0.75rem;">Ablation Outcome:</h4>
                         <div id="ablationResultBox" class="result-box empty-state">
-                            <p>Select a feature on the left to run an ablation experiment.</p>
+                            <p>Select any feature on the left to re-train the pipeline without it and inspect the delta.</p>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Feature Engineering Lab -->
+            <!-- 4. Feature Engineering Lab -->
             <div id="engineering-lab" class="tab-pane">
                 <div class="panel-header">
-                    <h2>Feature Engineering Lab</h2>
+                    <h2>Feature Engineering Laboratory</h2>
                 </div>
-                <p>Experiment with data transformations to expose new patterns to the model.</p>
+                <p>Synthesize non-linear transformations from raw features to expose hidden patterns to the estimator without manual data wrangling.</p>
                 
-                <div class="grid-2">
+                <div class="grid-2" style="margin-top: 1.5rem;">
                     <div class="form-group">
-                        <label>Select Numerical Feature:</label>
+                        <label for="engFeatureSelect">Select Feature:</label>
                         <select id="engFeatureSelect" class="form-control"></select>
                     </div>
                     <div class="form-group">
-                        <label>Select Transformation:</label>
+                        <label for="engTransformSelect">Mathematical Transformation:</label>
                         <select id="engTransformSelect" class="form-control">
-                            <option value="squared">Squared (x²)</option>
-                            <option value="log">Logarithm (log(x))</option>
-                            <option value="sqrt">Square Root (√x)</option>
+                            <option value="squared">Squared (x²) &mdash; Amplifies exponential &amp; quadratic effects</option>
+                            <option value="log">Logarithm (log(x)) &mdash; Compresses skewed tail distributions</option>
+                            <option value="sqrt">Square Root (√x) &mdash; Stabilizes sub-linear variance</option>
                         </select>
                     </div>
                 </div>
-                <button id="runEngineeringBtn" class="btn btn-secondary mt-2">Apply Transformation & Evaluate</button>
+                <button id="runEngineeringBtn" class="btn btn-secondary mt-2">Generate Feature &amp; Retrain</button>
                 
                 <div id="engineeringResultBox" class="result-box mt-3" style="display: none;"></div>
             </div>
             
-            <!-- Noise Lab -->
+            <!-- 5. Noise Lab -->
             <div id="noise-lab" class="tab-pane">
                 <div class="panel-header">
-                    <h2>Noise Lab</h2>
+                    <h2>Noise &amp; Robustness Stress Test</h2>
                 </div>
-                <p>Add random noise to a feature to see how it affects model generalization.</p>
+                <p>Inject synthetic Gaussian noise into selected features to observe model generalization decay. Models that fail catastrophically under small noise levels are overfitted.</p>
                 
-                <div class="grid-3">
+                <div class="grid-3" style="margin-top: 1.5rem; align-items: flex-end;">
                     <div class="form-group">
-                        <label>Select Feature:</label>
+                        <label for="noiseFeatureSelect">Target Feature:</label>
                         <select id="noiseFeatureSelect" class="form-control"></select>
                     </div>
                     <div class="form-group">
-                        <label>Noise Level (%): <span id="noiseLevelDisp">20</span>%</label>
-                        <input type="range" id="noiseLevelSlider" min="5" max="100" step="5" value="20" class="form-control-range">
+                        <label>Noise Injection Level: <span id="noiseLevelDisp" style="color: var(--accent-primary); font-weight: 700; font-family: var(--font-mono);">20</span>%</label>
+                        <input type="range" id="noiseLevelSlider" min="5" max="100" step="5" value="20" style="width: 100%; accent-color: var(--accent-primary);">
                     </div>
-                    <div class="form-group" style="display: flex; align-items: flex-end;">
-                        <button id="runNoiseBtn" class="btn btn-secondary">Inject Noise & Evaluate</button>
+                    <div class="form-group">
+                        <button id="runNoiseBtn" class="btn btn-secondary" style="width: 100%;">Inject Noise &amp; Evaluate</button>
                     </div>
                 </div>
                 
                 <div id="noiseResultBox" class="result-box mt-3" style="display: none;"></div>
             </div>
             
-            <!-- Feature Influence Simulator -->
+            <!-- 6. Feature Influence Simulator -->
             <div id="simulator-lab" class="tab-pane">
                 <div class="panel-header">
-                    <h2>Feature Influence Simulator</h2>
+                    <h2>Hypothetical Feature Influence Simulator</h2>
                 </div>
                 <div class="alert alert-warning">
-                    <strong>Simulation mode:</strong> these influence values are manually controlled for learning and are not the model's actual learned parameters.
+                    <div>
+                        <strong>Interactive Simulation:</strong> Dynamically adjust hypothetical feature contribution sliders to observe live prediction shifts based on the model's standardized feature weights.
+                    </div>
                 </div>
                 
-                <div class="toggle-switch-container mb-3">
+                <div class="toggle-switch-container mb-3" style="margin-top: 1rem;">
                     <label class="switch">
                         <input type="checkbox" id="normalizeInfluenceToggle" checked>
                         <span class="slider round"></span>
                     </label>
-                    <span>Auto-normalize to 100%</span>
+                    <span>Auto-normalize total relative influence to 100%</span>
                 </div>
                 
-                <div class="grid-2">
+                <div class="grid-2" style="margin-top: 1.25rem;">
                     <div id="simulatorSliders">
                         <!-- Sliders injected here -->
                     </div>
                     <div>
                         <div class="prediction-comparison">
                             <div class="pred-box real">
-                                <h4>REAL MODEL PREDICTION</h4>
+                                <h4>Baseline Prediction</h4>
                                 <div class="pred-value" id="realSimPred">--</div>
+                                <span class="badge badge-success" style="margin-top: 0.5rem;">Sample Average</span>
                             </div>
                             <div class="pred-box sim">
-                                <h4>SIMULATED PREDICTION</h4>
+                                <h4>Simulated Weighted Output</h4>
                                 <div class="pred-value" id="hypoSimPred">--</div>
-                                <p class="small text-muted mt-2">The simulated result represents a hypothetical re-weighting of feature contributions. It does not represent a newly trained model.</p>
+                                <p class="small text-muted mt-2">Adjust feature weights on the left to see how algorithmic sensitivity changes output expectations.</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Experiment History -->
-            <div id="history-lab" class="tab-pane">
+
+            <!-- 7. Model Comparison Lab (New) -->
+            <div id="comparison-lab" class="tab-pane">
                 <div class="panel-header">
-                    <h2>Experiment History</h2>
+                    <h2>Experiment Scorecard &amp; Comparison</h2>
+                    <button class="btn btn-sm btn-outline" id="refreshComparisonBtn">🔄 Refresh Runs</button>
                 </div>
-                <div id="historyTimeline" class="timeline">
-                    <!-- History injected here -->
+                <p>Compare performance metrics across your baseline pipeline and subsequent ablation or engineering iterations.</p>
+                
+                <div id="comparisonTableContainer" style="overflow-x: auto; margin-top: 1.5rem;">
+                    <table class="comparison-table" id="comparisonTable">
+                        <thead>
+                            <tr>
+                                <th>Experiment</th>
+                                <th>Type</th>
+                                <th>Algorithm</th>
+                                <th id="compMetricHeader1">Metric 1</th>
+                                <th id="compMetricHeader2">Metric 2</th>
+                                <th>Delta vs Baseline</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparisonTableBody">
+                            <!-- Injected comparison rows -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
             
+            <!-- 8. Experiment History -->
+            <div id="history-lab" class="tab-pane">
+                <div class="panel-header">
+                    <h2>Saved Experiment Timeline</h2>
+                </div>
+                <div id="historyTimeline" class="timeline">
+                    <!-- History timeline injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Studio Dataset Preview Modal -->
+<div class="modal-backdrop" id="studioPreviewModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h3 id="studioModalTitle" style="margin-bottom: 0.2rem;">Dataset Record Explorer</h3>
+                <p id="studioModalMeta" class="text-muted" style="font-size: 0.85rem; margin: 0;"></p>
+            </div>
+            <button class="btn btn-sm btn-outline" id="closeStudioModalBtn" style="padding: 0.3rem 0.6rem;">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="preview-table-container" id="studioModalTableWrapper">
+                <table class="preview-table" id="studioModalTable">
+                    <thead id="studioModalThead"></thead>
+                    <tbody id="studioModalTbody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="closeStudioModalActionBtn">Close Explorer</button>
         </div>
     </div>
 </div>
