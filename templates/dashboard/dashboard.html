@@ -56,8 +56,8 @@
             </div>
             
             <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                <button class="btn btn-secondary btn-sm preview-dataset-btn" data-filepath="{{ ds.storage_path }}" data-filename="{{ ds.filename }}" style="flex: 1;">👁️ Preview</button>
-                <button class="btn btn-primary btn-sm load-db-btn" data-filepath="{{ ds.storage_path }}" data-filename="{{ ds.filename }}" style="flex: 1.2;">Load in Studio</button>
+                <button class="btn btn-secondary btn-sm preview-dataset-btn" data-filepath="db:{{ ds.id }}" data-filename="{{ ds.filename }}" style="flex: 1;">👁️ Preview</button>
+                <button class="btn btn-primary btn-sm load-db-btn" data-filepath="db:{{ ds.id }}" data-filename="{{ ds.filename }}" style="flex: 1.2;">Load in Studio</button>
                 <button class="btn btn-sm btn-danger delete-db-btn" data-id="{{ ds.id }}" title="Delete dataset">🗑️</button>
             </div>
         </div>

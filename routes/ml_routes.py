@@ -16,6 +16,27 @@ from database.models import Dataset, MLExperiment, VisualizationRecord
 
 ml_bp = Blueprint('ml', __name__)
 
+import io
+def get_dataset_stream(filepath):
+    """Resolves 'db:ID' to a BytesIO stream, or returns the raw filepath for local files."""
+    if isinstance(filepath, str) and filepath.startswith('db:'):
+        try:
+            ds_id = int(filepath.split(':')[1])
+            ds = Dataset.query.get(ds_id)
+            if ds and ds.file_data:
+                return io.BytesIO(ds.file_data)
+        except Exception:
+            pass
+    return filepath
+
+def dataset_exists(filepath):
+    if isinstance(filepath, str) and filepath.startswith('db:'):
+        try:
+            ds_id = int(filepath.split(':')[1])
+            return Dataset.query.get(ds_id) is not None
+        except Exception:
+            return False
+    return filepath and os.path.exists(filepath)
 DEMO_DATASET_META = {
     "iris.csv": {
         "title": "Iris Flower Classification",
@@ -159,20 +180,9 @@ def upload_dataset():
             file.seek(0, os.SEEK_END)
             file_length = file.tell()
             file.seek(0)
-            
-            max_len = current_app.config.get('MAX_CONTENT_LENGTH', 10 * 1024 * 1024)
-            if file_length > max_len:
-                return jsonify({"error": f"File size ({round(file_length / (1024 * 1024), 2)}MB) exceeds {max_len // (1024 * 1024)}MB limit."}), 413
-                
-            file.save(filepath)
-            
-            df, error = load_dataset(filepath)
+            file_data = file.read()
+            df, error = load_dataset(io.BytesIO(file_data))
             if error:
-                if os.path.exists(filepath):
-                    try:
-                        os.remove(filepath)
-                    except OSError:
-                        pass
                 return jsonify({"error": error}), 400
                 
             analysis = analyze_dataset(df)
@@ -185,11 +195,12 @@ def upload_dataset():
                     file_size=file_length,
                     row_count=analysis['row_count'],
                     column_count=analysis['column_count'],
-                    storage_path=filepath
+                    file_data=file_data
                 )
                 db.session.add(new_ds)
                 db.session.commit()
                 dataset_id = new_ds.id
+                filepath = f"db:{dataset_id}"
             
             return jsonify({
                 "message": "File uploaded successfully",
@@ -199,11 +210,6 @@ def upload_dataset():
                 "analysis": analysis
             })
         except Exception as e:
-            if os.path.exists(filepath):
-                try:
-                    os.remove(filepath)
-                except OSError:
-                    pass
             return jsonify({"error": f"Upload processing failed: {str(e)}"}), 500
     
     return jsonify({"error": "Invalid file type. Only CSV files are allowed."}), 400
@@ -250,7 +256,7 @@ def load_demo_dataset():
     if not real_file_path.startswith(real_demo_dir) or not os.path.exists(real_file_path):
         return jsonify({"error": f"Demo dataset '{safe_name}' not found."}), 404
         
-    df, error = load_dataset(filepath)
+    df, error = load_dataset(get_dataset_stream(filepath))
     if error:
         return jsonify({"error": error}), 400
         
@@ -271,7 +277,7 @@ def load_existing():
     filepath = data.get('filepath')
     filename = data.get('filename')
     
-    if not filepath or not os.path.exists(filepath):
+    if not dataset_exists(filepath):
         return jsonify({"error": "Dataset not found on server."}), 404
         
     if current_user.is_authenticated:
@@ -284,7 +290,7 @@ def load_existing():
             if not is_owner:
                 return jsonify({"error": "Unauthorized access to dataset."}), 403
                 
-    df, error = load_dataset(filepath)
+    df, error = load_dataset(get_dataset_stream(filepath))
     if error:
         return jsonify({"error": error}), 400
         
@@ -303,10 +309,10 @@ def select_target():
     filepath = data.get('filepath')
     target = data.get('target')
     
-    if not filepath or not os.path.exists(filepath):
+    if not dataset_exists(filepath):
         return jsonify({"error": "Dataset not found on server."}), 404
         
-    df, error = load_dataset(filepath)
+    df, error = load_dataset(get_dataset_stream(filepath))
     if error:
         return jsonify({"error": error}), 400
         
@@ -350,21 +356,26 @@ def _save_experiment(user_id, filepath, model_name, problem_type, target, featur
     if not user_id:
         return None
     try:
-        norm_target = os.path.normcase(os.path.abspath(filepath))
-        user_datasets = Dataset.query.filter_by(user_id=user_id).all()
-        ds = next((d for d in user_datasets if os.path.normcase(os.path.abspath(d.storage_path)) == norm_target), None)
-        
-        if not ds:
+        ds = None
+        if isinstance(filepath, str) and filepath.startswith('db:'):
+            ds_id = int(filepath.split(':')[1])
+            ds = Dataset.query.filter_by(id=ds_id, user_id=user_id).first()
+            
+        if not ds and os.path.exists(filepath):
             filename = os.path.basename(filepath)
-            df, _ = load_dataset(filepath)
+            with open(filepath, 'rb') as f:
+                file_data = f.read()
+            df, _ = load_dataset(io.BytesIO(file_data))
             ds = Dataset(
                 user_id=user_id,
                 filename=filename,
-                file_size=os.path.getsize(filepath) if os.path.exists(filepath) else 0,
+                file_size=len(file_data),
                 row_count=len(df) if df is not None else 0,
                 column_count=len(df.columns) if df is not None else 0,
-                storage_path=filepath
+                file_data=file_data
             )
+            db.session.add(ds)
+            db.session.commit()
             db.session.add(ds)
             db.session.commit()
             
@@ -404,13 +415,13 @@ def run_baseline_experiment():
     if 'hyperparameters' in data and not config.get('hyperparameters'):
         config['hyperparameters'] = data['hyperparameters']
     
-    if not filepath or not os.path.exists(filepath):
+    if not dataset_exists(filepath):
         return jsonify({"error": "Dataset not found on server."}), 404
         
     if not target or not model_name:
         return jsonify({"error": "Missing required training parameters."}), 400
         
-    df, error = load_dataset(filepath)
+    df, error = load_dataset(get_dataset_stream(filepath))
     if error: return jsonify({"error": error}), 400
     
     if not raw_features:
@@ -443,10 +454,10 @@ def run_ablation_experiment():
     config = data.get('config', {})
     parent_id = data.get('parent_experiment_id')
     
-    if not filepath or not os.path.exists(filepath):
+    if not dataset_exists(filepath):
         return jsonify({"error": "Dataset not found."}), 404
         
-    df, error = load_dataset(filepath)
+    df, error = load_dataset(get_dataset_stream(filepath))
     if error: return jsonify({"error": error}), 400
     features = [f for f in raw_features if f in df.columns and f != target]
     
@@ -475,7 +486,7 @@ def run_noise_experiment():
     config = data.get('config', {})
     parent_id = data.get('parent_experiment_id')
     
-    df, error = load_dataset(filepath)
+    df, error = load_dataset(get_dataset_stream(filepath))
     if error: return jsonify({"error": error}), 400
     
     res, err = run_noise_injection(df, target, noise_feature, noise_level, features, problem_type, model_name, config)
@@ -501,7 +512,7 @@ def run_engineering_experiment():
     config = data.get('config', {})
     parent_id = data.get('parent_experiment_id')
     
-    df, error = load_dataset(filepath)
+    df, error = load_dataset(get_dataset_stream(filepath))
     if error: return jsonify({"error": error}), 400
     
     eng_config = {'original_feature': orig_feat, 'transformation_type': trans_type}

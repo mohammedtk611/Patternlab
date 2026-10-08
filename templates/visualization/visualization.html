@@ -28,7 +28,7 @@
                 {% if user_datasets %}
                 <optgroup label="Your Datasets">
                     {% for ds in user_datasets %}
-                    <option value="{{ ds.storage_path }}" data-user="true">{{ ds.filename }}</option>
+                    <option value="db:{{ ds.id }}" data-user="true">{{ ds.filename }}</option>
                     {% endfor %}
                 </optgroup>
                 {% endif %}
