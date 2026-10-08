@@ -19,17 +19,7 @@ def create_app(config_class=Config):
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     with app.app_context():
-        try:
-            db.create_all()
-        except Exception as e:
-            fallback_uri = app.config.get('SQLITE_FALLBACK_URI')
-            if fallback_uri and app.config['SQLALCHEMY_DATABASE_URI'] != fallback_uri:
-                app.logger.warning(f"Primary database connection failed ({e}). Falling back to SQLite: {fallback_uri}")
-                app.config['SQLALCHEMY_DATABASE_URI'] = fallback_uri
-                db.init_app(app)
-                db.create_all()
-            else:
-                app.logger.error(f"Failed to initialize database: {e}")
+        db.create_all()
 
     from routes.dashboard_routes import dashboard_bp
     from routes.ml_routes import ml_bp
