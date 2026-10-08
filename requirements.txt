@@ -8,3 +8,4 @@ psycopg2-binary==2.9.9
 Flask-Login==0.6.2
 Flask-Bcrypt==1.0.1
 sqlalchemy-utils==0.41.1
+gunicorn==21.2.0
