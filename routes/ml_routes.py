@@ -104,11 +104,9 @@ def preview_dataset():
     if error or df is None:
         return jsonify({"error": error or "Could not read dataset."}), 400
         
-    # Take top n_rows and replace NaNs with None for valid JSON serialization
     sample_df = df.head(n_rows).replace({np.nan: None})
     rows = sample_df.to_dict(orient='records')
     
-    # Sanitize any remaining floating NaNs/Infs
     sanitized_rows = []
     for row in rows:
         clean_row = {}
@@ -151,7 +149,6 @@ def upload_dataset():
             
     original_filename = secure_filename(file.filename)
     if original_filename.lower().endswith('.csv'):
-        # Generate unique storage filename to avoid collisions across uploads
         unique_prefix = uuid.uuid4().hex[:8]
         saved_filename = f"{unique_prefix}_{original_filename}"
         upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
@@ -159,7 +156,6 @@ def upload_dataset():
         filepath = os.path.join(upload_folder, saved_filename)
         
         try:
-            # Check content length limit
             file.seek(0, os.SEEK_END)
             file_length = file.tell()
             file.seek(0)
@@ -170,7 +166,6 @@ def upload_dataset():
                 
             file.save(filepath)
             
-            # Analyze dataset
             df, error = load_dataset(filepath)
             if error:
                 if os.path.exists(filepath):
@@ -223,11 +218,9 @@ def delete_dataset(dataset_id):
         return jsonify({"error": "Dataset not found or unauthorized."}), 404
         
     try:
-        # Cascade delete associated experiment and visualization records
         MLExperiment.query.filter_by(dataset_id=dataset.id).delete()
         VisualizationRecord.query.filter_by(dataset_id=dataset.id).delete()
         
-        # Delete physical file from disk if it exists
         if dataset.storage_path and os.path.exists(dataset.storage_path):
             try:
                 os.remove(dataset.storage_path)
@@ -252,7 +245,6 @@ def load_demo_dataset():
     demo_folder = current_app.config.get('DEMO_DATASETS_FOLDER', '')
     filepath = os.path.join(demo_folder, safe_name)
     
-    # Path traversal protection
     real_demo_dir = os.path.abspath(demo_folder)
     real_file_path = os.path.abspath(filepath)
     if not real_file_path.startswith(real_demo_dir) or not os.path.exists(real_file_path):
@@ -282,7 +274,6 @@ def load_existing():
     if not filepath or not os.path.exists(filepath):
         return jsonify({"error": "Dataset not found on server."}), 404
         
-    # Authorization check if user is authenticated and loading non-demo dataset
     if current_user.is_authenticated:
         demo_folder = current_app.config.get('DEMO_DATASETS_FOLDER', '')
         is_demo = os.path.abspath(filepath).startswith(os.path.abspath(demo_folder)) if demo_folder else False
@@ -326,12 +317,10 @@ def select_target():
     available_models = get_available_models(problem_type)
     models_metadata = get_available_models_with_metadata(problem_type)
     
-    # Data Leakage checks
     warnings = []
     if df[target].nunique() == len(df):
         warnings.append("Target column contains all unique values. This indicates target leakage or an ID column.")
     
-    # ID column heuristic
     for col in df.columns:
         if col != target and df[col].nunique() == len(df) and pd.api.types.is_numeric_dtype(df[col]):
             warnings.append(f"Column '{col}' has unique values for every row (likely an ID column). We recommend excluding it to prevent data leakage.")

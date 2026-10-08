@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}PatternLab — Interactive Machine Learning Studio{% endblock %}</title>
+    <title>PatternLab - {% block title %}Interactive Machine Learning Studio{% endblock %}</title>
     <meta name="description" content="An interactive machine learning laboratory to train, inspect, ablate, and visualize models and data patterns.">
     
     <!-- Google Fonts Preconnect -->
@@ -11,6 +11,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f97316' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='6' cy='6' r='3'/%3E%3Ccircle cx='18' cy='6' r='3'/%3E%3Ccircle cx='12' cy='18' r='3'/%3E%3Cline x1='8.5' y1='7.5' x2='15.5' y2='7.5'/%3E%3Cline x1='7.5' y1='8.5' x2='10.5' y2='15.5'/%3E%3Cline x1='16.5' y1='8.5' x2='13.5' y2='15.5'/%3E%3C/svg%3E">
+
     <!-- Global CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
     {% block extra_css %}{% endblock %}

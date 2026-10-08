@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         openStudioPreviewModal(datasetState.filepath, datasetState.filename);
     });
 
-    // 1. Exploratory Data Analysis & Setup
+    // Exploratory Data Analysis & Setup
     function renderAnalysis(filename, analysis) {
         let html = `
             <div class="dataset-summary-bar">
@@ -46,15 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="text-muted" style="font-size: 0.85rem;">Feature types, missing value percentages, and baseline summary statistics</p>
             </div>
             
-            <div class="table-container-static" style="max-height: 340px; overflow-y: auto; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-                <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+            <div class="table-container-static" style="overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-sm);">
+                <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
                     <thead>
                         <tr>
-                            <th>Column Name</th>
-                            <th>Data Type</th>
-                            <th>Missing Cells</th>
-                            <th>Missing %</th>
-                            <th>Distribution Summary</th>
+                            <th style="padding: 1.25rem 1rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px;">Column Name</th>
+                            <th style="padding: 1.25rem 1rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px;">Data Type</th>
+                            <th style="padding: 1.25rem 1rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px;">Missing Cells</th>
+                            <th style="padding: 1.25rem 1rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px;">Missing %</th>
+                            <th style="padding: 1.25rem 1rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px;">Distribution Summary</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -62,30 +62,37 @@ document.addEventListener('DOMContentLoaded', () => {
                             const typeBadgeClass = col.type === 'numerical' ? 'badge-blue' : 'badge-orange';
                             const hasMissing = col.missing_count > 0;
                             return `
-                            <tr>
-                                <td>
-                                    <div style="font-weight: 600; color: var(--text-primary); font-family: var(--font-mono);">${escapeHtml(col.name)}</div>
+                            <tr style="transition: all 0.2s ease; cursor: pointer; border-bottom: 1px solid var(--border-subtle);" onmouseover="this.style.backgroundColor='var(--bg-surface-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <td style="padding: 1.25rem 1rem;">
+                                    <div style="font-weight: 600; color: var(--accent-primary); font-family: var(--font-mono); font-size: 1rem;">${escapeHtml(col.name)}</div>
                                 </td>
-                                <td>
-                                    <span class="badge ${typeBadgeClass}">${col.type}</span>
-                                    <span class="text-muted" style="display: block; font-size: 0.75rem; margin-top: 2px;">${col.dtype}</span>
+                                <td style="padding: 1.25rem 1rem;">
+                                    <span class="badge ${typeBadgeClass}" style="box-shadow: var(--shadow-sm);">${col.type}</span>
+                                    <span class="text-muted" style="display: block; font-size: 0.8rem; margin-top: 6px; font-family: var(--font-mono); font-weight: 500;">${col.dtype}</span>
                                 </td>
-                                <td style="font-weight: 600; color: ${hasMissing ? 'var(--danger)' : 'var(--text-muted)'};">
-                                    ${col.missing_count}
+                                <td style="padding: 1.25rem 1rem;">
+                                    <span style="display: inline-block; padding: 0.35rem 0.75rem; border-radius: 6px; background: ${hasMissing ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)'}; color: ${hasMissing ? 'var(--danger)' : 'var(--success)'}; font-weight: 700; font-size: 0.95rem;">
+                                        ${col.missing_count}
+                                    </span>
                                 </td>
-                                <td style="font-weight: 600; color: ${hasMissing ? 'var(--danger)' : 'var(--text-muted)'};">
-                                    ${col.missing_percentage}%
+                                <td style="padding: 1.25rem 1rem;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span style="font-weight: 700; font-size: 0.95rem; color: ${hasMissing ? 'var(--danger)' : 'var(--text-muted)'}; min-width: 40px;">${col.missing_percentage}%</span>
+                                        <div style="flex-grow: 1; max-width: 100px; height: 8px; background: var(--bg-surface); border-radius: 4px; border: 1px solid var(--border-subtle); overflow: hidden;">
+                                            <div style="width: ${col.missing_percentage > 0 ? col.missing_percentage : 100}%; height: 100%; background: ${hasMissing ? 'var(--danger)' : 'var(--success)'}; opacity: ${hasMissing ? '1' : '0.5'};"></div>
+                                        </div>
+                                    </div>
                                 </td>
-                                <td>
+                                <td style="padding: 1.25rem 1rem;">
                                     ${col.type === 'numerical' ? `
-                                        <div style="display: flex; gap: 0.75rem; font-size: 0.8rem; font-family: var(--font-mono);">
-                                            <span>Min: <strong>${col.min !== null ? col.min : 'N/A'}</strong></span>
-                                            <span>Max: <strong>${col.max !== null ? col.max : 'N/A'}</strong></span>
-                                            <span>Mean: <strong>${col.mean !== null ? col.mean.toFixed(2) : 'N/A'}</strong></span>
+                                        <div style="display: inline-flex; align-items: center; gap: 0.75rem; background: var(--bg-surface); padding: 0.5rem 1rem; border-radius: 99px; border: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 0.85rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                                            <span style="color: var(--text-muted); font-weight: 600;">MIN</span> <strong style="color: var(--text-primary); font-size: 0.95rem;">${col.min !== null ? col.min : 'N/A'}</strong> 
+                                            <span style="color: var(--text-muted); font-weight: 600; padding-left: 0.75rem; border-left: 1px solid var(--border-subtle);">MEAN</span> <strong style="color: var(--text-primary); font-size: 0.95rem;">${col.mean !== null ? col.mean.toFixed(2) : 'N/A'}</strong>
+                                            <span style="color: var(--text-muted); font-weight: 600; padding-left: 0.75rem; border-left: 1px solid var(--border-subtle);">MAX</span> <strong style="color: var(--text-primary); font-size: 0.95rem;">${col.max !== null ? col.max : 'N/A'}</strong>
                                         </div>
                                     ` : `
-                                        <div style="font-size: 0.8rem;">
-                                            <span>Distinct Categories: <strong>${col.unique_values || 'N/A'}</strong></span>
+                                        <div style="display: inline-flex; align-items: center; gap: 0.75rem; background: var(--bg-surface); padding: 0.5rem 1rem; border-radius: 99px; border: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 0.85rem;">
+                                            <span style="color: var(--text-muted); font-weight: 600;">UNIQUE CATEGORIES</span> <strong style="color: var(--text-primary); font-size: 0.95rem;">${col.unique_values || 'N/A'}</strong>
                                         </div>
                                     `}
                                 </td>
@@ -103,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupTargetSelection(datasetState);
     }
 
-    // 2. Target Variable Selection
+    // Target Variable Selection
     function setupTargetSelection(state) {
         const targetSelect = document.getElementById('targetSelect');
         targetSelect.innerHTML = '<option value="">-- Choose Target Column --</option>';
@@ -144,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Show problem type
                 document.getElementById('targetProblemType').textContent = data.problem_type;
-                document.getElementById('targetDescription').style.display = 'block';
+                document.getElementById('targetDescription').style.display = 'flex';
                 
                 // Show warnings
                 const warnBox = document.getElementById('dataLeakageWarnings');
@@ -164,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 3. Algorithm Selection & Hyperparameters
+    // Algorithm Selection & Hyperparameters
     function setupModelSelection(modelsData) {
         const modelSelect = document.getElementById('modelSelect');
         modelSelect.innerHTML = '';
@@ -338,14 +345,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     baselineMetrics = data.metrics;
                     currentExperimentId = data.experiment_id;
                     
-                    // Add to session comparisons
-                    sessionExperiments = [{
-                        name: `Baseline (${selectedModel})`,
+                    // Add to session comparisons to keep memory of earlier algorithms
+                    sessionExperiments.push({
+                        name: `Baseline (${selectedModel}) - Run ${sessionExperiments.length + 1}`,
                         type: 'baseline',
                         algorithm: selectedModel,
                         metrics: data.metrics,
                         isBaseline: true
-                    }];
+                    });
                     
                     showToast('Baseline model trained successfully!', 'success');
                     initializeLaboratory(state, data.metrics, features);
@@ -364,8 +371,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // 5. Initialize Laboratory State & Tabs
     function initializeLaboratory(state, metrics, features) {
         document.getElementById('laboratoryState').style.display = 'block';
-        document.getElementById('setupStatusBadge').className = 'badge badge-success';
-        document.getElementById('setupStatusBadge').textContent = 'Trained & Active';
+        
+        // Hide the dataset table and the main header to simulate a "new page"
+        document.getElementById('analysisContent').style.display = 'none';
+        const builderHeader = document.querySelector('.builder-header');
+        if (builderHeader) builderHeader.style.display = 'none';
+        
+        // Make the main container full width for the dashboard layout
+        const mainContainer = document.querySelector('main.container');
+        if (mainContainer) {
+            mainContainer.style.maxWidth = '100%';
+            mainContainer.style.padding = '0';
+        }
+        
+        const builderContainer = document.querySelector('.ml-builder-container');
+        if (builderContainer) {
+            builderContainer.style.maxWidth = '100%';
+            builderContainer.style.padding = '0';
+        }
+        
+        // Move the setup config section into the laboratory state as a top header
+        const setupState = document.getElementById('setupState');
+        const tabContent = document.querySelector('.tab-content');
+        if (setupState && tabContent) {
+            setupState.style.border = 'none';
+            setupState.style.background = 'transparent';
+            setupState.style.padding = '0 0 1.5rem 0';
+            
+            // Hide the setup header and other parts we don't need in the dashboard view
+            const setupHeader = setupState.querySelector('.panel-header');
+            if (setupHeader) setupHeader.style.display = 'none';
+            
+            document.getElementById('hyperparamsAccordion').style.display = 'none';
+            const dataLeakageWarnings = document.getElementById('dataLeakageWarnings');
+            if (dataLeakageWarnings) dataLeakageWarnings.style.display = 'none';
+            
+            // Hide the train button container
+            const trainBtn = document.getElementById('trainBaselineBtn');
+            if (trainBtn && trainBtn.parentNode) {
+                trainBtn.parentNode.style.display = 'none';
+            }
+            
+            tabContent.prepend(setupState);
+        }
         
         // Tab click listeners
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -391,7 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupSimulatorLab(metrics);
         renderComparisonTable();
         
-        document.getElementById('laboratoryState').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     // 6. Render Dashboard (Metrics, Confusion Matrix, Actual vs Pred, Feature Importance)

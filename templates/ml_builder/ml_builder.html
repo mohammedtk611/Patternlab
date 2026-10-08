@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}PatternLab — Interactive Machine Learning Studio{% endblock %}
+{% block title %}ML Studio{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ml_builder.css') }}">
@@ -38,9 +38,9 @@
                 <div class="form-group">
                     <label for="targetSelect">Target Variable (Prediction Goal):</label>
                     <select id="targetSelect" class="form-control"></select>
-                    <div id="targetDescription" style="display:none; margin-top: 0.75rem;">
+                    <div id="targetDescription" style="display:none; margin-top: 0.75rem; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                         <span class="badge badge-orange" id="targetProblemType"></span>
-                        <span class="text-muted" style="font-size: 0.85rem; margin-left: 0.5rem;" id="targetHint">Inferred prediction objective</span>
+                        <span class="text-muted" style="font-size: 0.85rem;" id="targetHint">Inferred prediction objective</span>
                     </div>
                 </div>
                 
@@ -48,7 +48,7 @@
                 <div class="form-group">
                     <label for="modelSelect">Algorithm Selection:</label>
                     <select id="modelSelect" class="form-control"></select>
-                    <div id="modelBadgeContainer" style="margin-top: 0.75rem;">
+                    <div id="modelBadgeContainer" style="margin-top: 0.75rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                         <span id="modelCategoryBadge" class="badge badge-blue"></span>
                     </div>
                 </div>
@@ -110,36 +110,63 @@
     
     <!-- Laboratory State (Active after baseline is trained) -->
     <div id="laboratoryState" style="display: none;">
-        <div class="lab-tabs-wrapper">
-            <div class="lab-tabs">
-                <button class="tab-btn active" data-tab="dashboard">
-                    <span>📊</span> Overview &amp; Evaluation
-                </button>
-                <button class="tab-btn" data-tab="cv-lab">
-                    <span>🔄</span> Cross-Validation
-                </button>
-                <button class="tab-btn" data-tab="ablation-lab">
-                    <span>✂️</span> Feature Ablation
-                </button>
-                <button class="tab-btn" data-tab="engineering-lab">
-                    <span>⚡</span> Feature Engineering
-                </button>
-                <button class="tab-btn" data-tab="noise-lab">
-                    <span>📡</span> Noise Stress Test
-                </button>
-                <button class="tab-btn" data-tab="simulator-lab">
-                    <span>🎛️</span> Influence Simulator
-                </button>
-                <button class="tab-btn" data-tab="comparison-lab">
-                    <span>⚖️</span> Model Comparison
-                </button>
-                <button class="tab-btn" data-tab="history-lab">
-                    <span>📜</span> Experiment History
-                </button>
+        <div class="lab-layout" style="display: flex; align-items: flex-start; flex-wrap: nowrap; min-height: calc(100vh - 76px);">
+            <div class="lab-sidebar" style="width: 280px; flex-shrink: 0; background: var(--bg-surface-elevated); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; justify-content: space-between; position: sticky; top: 76px; height: calc(100vh - 76px);">
+                <div class="sidebar-nav-items" style="padding: 1.5rem 1rem; overflow-y: auto;">
+                    <button class="tab-btn active" data-tab="dashboard">
+                        <span>📊</span> Overview &amp; Evaluation
+                    </button>
+                    <button class="tab-btn" data-tab="cv-lab">
+                        <span>🔄</span> Cross-Validation
+                    </button>
+                    <button class="tab-btn" data-tab="ablation-lab">
+                        <span>✂️</span> Feature Ablation
+                    </button>
+                    <button class="tab-btn" data-tab="engineering-lab">
+                        <span>⚡</span> Feature Engineering
+                    </button>
+                    <button class="tab-btn" data-tab="noise-lab">
+                        <span>📡</span> Noise Stress Test
+                    </button>
+                    <button class="tab-btn" data-tab="simulator-lab">
+                        <span>🎛️</span> Influence Simulator
+                    </button>
+                    <button class="tab-btn" data-tab="comparison-lab">
+                        <span>⚖️</span> Model Comparison
+                    </button>
+                    <button class="tab-btn" data-tab="history-lab">
+                        <span>📜</span> Experiment History
+                    </button>
+                </div>
+                
+                <!-- Bottom Profile Section -->
+                <div class="sidebar-profile" style="padding: 1.25rem 1rem; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 0.75rem; background: var(--bg-surface);">
+                    {% if current_user.is_authenticated %}
+                        <div class="profile-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--accent-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;">
+                            {{ current_user.username[0] | upper }}
+                        </div>
+                        <div class="profile-info" style="flex: 1; overflow: hidden;">
+                            <div style="font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ current_user.username }}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Personal Workspace</div>
+                        </div>
+                        <a href="{{ url_for('auth.logout') }}" style="color: var(--text-muted); cursor: pointer;" title="Logout">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        </a>
+                    {% else %}
+                        <div class="profile-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--border-subtle); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;">
+                            G
+                        </div>
+                        <div class="profile-info" style="flex: 1; overflow: hidden;">
+                            <div style="font-weight: 600; font-size: 0.95rem;">Guest User</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Not logged in</div>
+                        </div>
+                        <a href="{{ url_for('auth.login') }}" style="color: var(--text-muted); cursor: pointer;" title="Sign In">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                        </a>
+                    {% endif %}
+                </div>
             </div>
-        </div>
-        
-        <div class="tab-content">
+        <div class="tab-content" style="flex: 1; min-width: 0; padding: 2rem;">
             <!-- 1. Dashboard Tab -->
             <div id="dashboard" class="tab-pane active">
                 <div class="panel-header">
@@ -355,6 +382,7 @@
                     <!-- History timeline injected here -->
                 </div>
             </div>
+        </div>
         </div>
     </div>
 </div>
