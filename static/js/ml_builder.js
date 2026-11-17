@@ -145,9 +145,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             
             if (response.ok) {
-                state.target = target;
+                state.target = data.target || target;
                 state.problem_type = data.problem_type;
                 currentModelsMetadata = data.models_metadata || [];
+                sessionStorage.setItem('currentDataset', JSON.stringify(state));
                 
                 // Show problem type
                 document.getElementById('targetProblemType').textContent = data.problem_type;
@@ -164,6 +165,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 setupModelSelection(data.models_metadata || data.available_models);
+            } else {
+                showToast(data.error || 'Failed to analyze target column.', 'danger');
             }
         } catch (err) {
             console.error('Error fetching target metadata:', err);

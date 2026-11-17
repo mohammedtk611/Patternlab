@@ -24,7 +24,8 @@ class Dataset(db.Model):
     file_size = db.Column(db.Integer, nullable=False)
     row_count = db.Column(db.Integer, nullable=False)
     column_count = db.Column(db.Integer, nullable=False)
-    file_data = db.Column(db.LargeBinary, nullable=False)
+    storage_path = db.Column(db.String(255), nullable=True)
+    file_data = db.Column(db.LargeBinary, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 class MLExperiment(db.Model):

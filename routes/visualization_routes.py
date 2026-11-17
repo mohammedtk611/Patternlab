@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import current_user
 from ml.data_loader import load_dataset, get_demo_datasets
 from database.models import Dataset
+from routes.ml_routes import dataset_exists, get_dataset_stream
 from visualization.graph_data import generate_graph_data
 from visualization.dimensionality_reduction import reduce_dimensions
 
@@ -25,10 +26,10 @@ def get_graph():
     target = data.get('target')
     features = data.get('features', [])
     
-    if not filepath or not os.path.exists(filepath):
+    if not dataset_exists(filepath):
         return jsonify({"error": "Dataset not found"}), 404
         
-    df, error = load_dataset(filepath)
+    df, error = load_dataset(get_dataset_stream(filepath))
     if error or df is None:
         return jsonify({"error": error or "Failed to load dataset."}), 400
         
@@ -43,10 +44,10 @@ def reduce_dim():
     method = data.get('method', 'pca')
     dimensions = int(data.get('dimensions', 3))
     
-    if not filepath or not os.path.exists(filepath):
+    if not dataset_exists(filepath):
         return jsonify({"error": "Dataset not found"}), 404
         
-    df, error = load_dataset(filepath)
+    df, error = load_dataset(get_dataset_stream(filepath))
     if error or df is None:
         return jsonify({"error": error or "Failed to load dataset."}), 400
         

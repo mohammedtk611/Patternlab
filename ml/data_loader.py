@@ -3,10 +3,11 @@ import pandas as pd
 
 def load_dataset(filepath):
     try:
-        # Just basic loading for Phase 1
         df = pd.read_csv(filepath)
         if df.empty:
             return None, "The uploaded CSV file is empty."
+        # Strip surrounding whitespace from column headers to prevent matching issues
+        df.columns = [str(c).strip() for c in df.columns]
         return df, None
     except pd.errors.EmptyDataError:
         return None, "The uploaded CSV file is empty or corrupted."
