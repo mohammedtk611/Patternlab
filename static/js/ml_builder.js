@@ -17,6 +17,84 @@ document.addEventListener('DOMContentLoaded', () => {
     if (datasetState && datasetState.analysis) {
         renderAnalysis(datasetState.filename, datasetState.analysis);
         document.getElementById('datasetQuickActions').style.display = 'flex';
+    } else {
+        setupBuilderDirectUpload();
+    }
+
+    function setupBuilderDirectUpload() {
+        const dropZone = document.getElementById('builderDropZone');
+        const fileInput = document.getElementById('builderFileInput');
+        const statusEl = document.getElementById('builderUploadStatus');
+        if (!dropZone || !fileInput) return;
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        ['dragenter', 'dragover'].forEach(name => {
+            dropZone.addEventListener(name, (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = 'var(--accent-primary)';
+                dropZone.style.background = 'var(--bg-surface-hover)';
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(name => {
+            dropZone.addEventListener(name, (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = 'var(--border-medium)';
+                dropZone.style.background = 'var(--bg-surface-elevated)';
+            });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleBuilderUpload(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleBuilderUpload(e.target.files[0]);
+            }
+        });
+
+        async function handleBuilderUpload(file) {
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                showToast('Please select a valid CSV file.', 'danger');
+                return;
+            }
+            if (statusEl) {
+                statusEl.textContent = 'Uploading and analyzing dataset...';
+                statusEl.className = 'status-msg';
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                const response = await fetch('/ml/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    storeDatasetState(data.analysis, data.filepath, data.filename);
+                    showToast('Dataset uploaded and analyzed!', 'success');
+                    renderAnalysis(data.filename, data.analysis);
+                    const quickActions = document.getElementById('datasetQuickActions');
+                    if (quickActions) quickActions.style.display = 'flex';
+                } else {
+                    if (statusEl) {
+                        statusEl.textContent = data.error || 'Upload failed.';
+                        statusEl.className = 'status-msg error';
+                    }
+                    showToast(data.error || 'Upload failed.', 'danger');
+                }
+            } catch (err) {
+                if (statusEl) {
+                    statusEl.textContent = 'Network error during upload.';
+                    statusEl.className = 'status-msg error';
+                }
+                showToast('Network error during upload.', 'danger');
+            }
+        }
     }
 
     // Dataset Quick View Modal in Studio

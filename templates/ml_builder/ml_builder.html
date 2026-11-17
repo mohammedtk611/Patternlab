@@ -28,8 +28,17 @@
         </div>
         
         <div id="analysisContent" class="empty-state">
-            <p>No dataset is currently loaded. Visit the dashboard to select a curated demo dataset or upload your own CSV.</p>
-            <a href="/" class="btn btn-primary">Go to Dashboard &rarr;</a>
+            <div style="max-width: 520px; margin: 0 auto; text-align: center;">
+                <p style="margin-bottom: 1.25rem; font-size: 1rem; color: var(--text-secondary);">No dataset is currently loaded in this session. Upload a CSV to start analyzing and training models, or explore demo datasets on the dashboard.</p>
+                <div class="drop-zone" id="builderDropZone" style="border: 2px dashed var(--border-medium); border-radius: var(--radius-lg); padding: 2.25rem 1.5rem; cursor: pointer; background: var(--bg-surface-elevated); transition: all 0.2s ease; margin-bottom: 1.25rem;">
+                    <div style="font-size: 2.75rem; margin-bottom: 0.5rem;">📁</div>
+                    <div style="font-weight: 700; font-size: 1.05rem; margin-bottom: 0.25rem;">Click or drag &amp; drop your CSV file here</div>
+                    <div class="text-muted" style="font-size: 0.85rem;">Supports tabular .csv files up to 10MB</div>
+                    <input type="file" id="builderFileInput" accept=".csv" style="display: none;">
+                </div>
+                <div id="builderUploadStatus" class="status-msg" style="margin-bottom: 1rem; font-size: 0.9rem;"></div>
+                <a href="/" class="btn btn-outline">Explore Pre-loaded Demo Datasets &rarr;</a>
+            </div>
         </div>
         
         <div id="configSection" style="display: none; margin-top: 1.5rem;">

@@ -20,6 +20,22 @@ def create_app(config_class=Config):
 
     with app.app_context():
         db.create_all()
+        try:
+            with db.engine.connect() as conn:
+                if db.engine.dialect.name == 'postgresql':
+                    conn.execute(db.text("ALTER TABLE dataset ADD COLUMN IF NOT EXISTS file_data BYTEA"))
+                    conn.execute(db.text("ALTER TABLE dataset ADD COLUMN IF NOT EXISTS storage_path VARCHAR(255)"))
+                    conn.execute(db.text("ALTER TABLE dataset ALTER COLUMN user_id DROP NOT NULL"))
+                    conn.commit()
+                elif db.engine.dialect.name == 'sqlite':
+                    columns = [row[1] for row in conn.execute(db.text("PRAGMA table_info(dataset)")).fetchall()]
+                    if 'file_data' not in columns:
+                        conn.execute(db.text("ALTER TABLE dataset ADD COLUMN file_data BLOB"))
+                    if 'storage_path' not in columns:
+                        conn.execute(db.text("ALTER TABLE dataset ADD COLUMN storage_path VARCHAR(255)"))
+                    conn.commit()
+        except Exception as e:
+            app.logger.warning(f"Database schema setup notice: {e}")
 
     from routes.dashboard_routes import dashboard_bp
     from routes.ml_routes import ml_bp

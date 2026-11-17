@@ -19,7 +19,7 @@ class User(db.Model, UserMixin):
 
 class Dataset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     filename = db.Column(db.String(100), nullable=False)
     file_size = db.Column(db.Integer, nullable=False)
     row_count = db.Column(db.Integer, nullable=False)

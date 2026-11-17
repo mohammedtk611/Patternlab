@@ -8,7 +8,11 @@ class Config:
     
     # Database configuration
     _raw_db_url = os.environ.get('DATABASE_URL') or os.environ.get('SQLALCHEMY_DATABASE_URI')
-    if not _raw_db_url:
+    if _raw_db_url:
+        # Render and Heroku compatibility: convert postgres:// to postgresql://
+        if _raw_db_url.startswith("postgres://"):
+            _raw_db_url = _raw_db_url.replace("postgres://", "postgresql://", 1)
+    else:
         _raw_db_url = 'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'patternlab.db')
         
     SQLALCHEMY_DATABASE_URI = _raw_db_url

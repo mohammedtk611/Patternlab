@@ -230,9 +230,10 @@ def upload_dataset():
             analysis = analyze_dataset(df)
             dataset_id = None
             
-            if current_user.is_authenticated:
+            try:
+                user_id = current_user.id if current_user.is_authenticated else None
                 new_ds = Dataset(
-                    user_id=current_user.id,
+                    user_id=user_id,
                     filename=original_filename,
                     file_size=file_length,
                     row_count=analysis['row_count'],
@@ -244,6 +245,9 @@ def upload_dataset():
                 db.session.commit()
                 dataset_id = new_ds.id
                 filepath = f"db:{dataset_id}"
+            except Exception as dbe:
+                db.session.rollback()
+                current_app.logger.warning(f"Database save skipped or failed: {dbe}")
             
             return jsonify({
                 "message": "File uploaded successfully",
